@@ -1,0 +1,9 @@
+[submodule "TheSkyBlessing"]
+	path = TheSkyBlessing
+	url = https://github.com/ProjectTSB/TheSkyBlessing.git
+[submodule "Asset"]
+	path = Asset
+	url = https://github.com/ProjectTSB/Asset.git
+[submodule "Asset-AnimatedJava"]
+	path = Asset-AnimatedJava
+	url = https://github.com/ProjectTSB/Asset-AnimatedJava.git

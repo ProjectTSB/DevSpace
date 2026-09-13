@@ -1,0 +1,47 @@
+{
+  "name": "Devcontainer for MCC",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/node:2": {},
+    "ghcr.io/jsburckhardt/devcontainer-features/codex:1": {},
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "forwardPorts": [25565],
+  "portsAttributes": {
+    "25565": {
+      "label": "Minecraft (server/)",
+      "onAutoForward": "silent"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "streetsidesoftware.code-spell-checker",
+        "mechatroner.rainbow-csv",
+        "Anthropic.claude-code",
+        "openai.chatgpt",
+        "MinecraftCommands.syntax-mcfunction",
+        "SPGoding.datapack-language-server"
+      ],
+      "settings": {
+        "files.eol": "\n",
+        "files.insertFinalNewline": true,
+        "files.trimFinalNewlines": true,
+        "files.trimTrailingWhitespace": true,
+        "editor.formatOnSave": true
+      },
+      "java.jdt.ls.java.home": "/docker-java-home"
+    }
+  },
+  "mounts": [
+    "source=claudeconfig-${devcontainerId},target=/home/vscode/.claude,type=volume",
+    "source=codexconfig-${devcontainerId},target=/home/vscode/.codex,type=volume",
+    "source=commandhistory-${devcontainerId},target=/commandhistory,type=volume"
+  ],
+  "containerEnv": {
+    "CLAUDE_CONFIG_DIR": "/home/vscode/.claude"
+  },
+  "postCreateCommand": "curl -fsSL https://claude.ai/install.sh | bash && echo 'export PATH=\"$HOME/.local/bin:$PATH\"' >> ~/.bashrc"
+}
