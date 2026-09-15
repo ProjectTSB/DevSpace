@@ -10,6 +10,10 @@
 
 2026-09-15 再照合: AJ の指摘を受け、既存ナレッジの断定を `gpt-5.6-sol` / low で再監査した。継承・dispatch・Field 保存・Effect・Artifact・API の代表経路を追い、schedule probe の目的、永続状態の保存先、call.m の呼出前提、現行 Mob event tag、Wiki への帰属、解除経路の適用範囲を修正した。コードの静的確認であり、実機検証を追加したものではない。根拠は両 repo の sources.md、読取ログと監査結果は `.runtime/knowledge-research/knowledge-recheck/` に記録した。
 
+## コミット先の訂正（2026-09-15）
+
+ユーザーの指定により Asset／TheSkyBlessing の master への直接コミットを禁止した。上記2 repo の作業コミットはそれぞれ `chore/devspace-environment-and-knowledge` に保持し、現在の checkout も同ブランチへ切り替えた。ローカル master は Asset `8f661ea1003a0e519d9825c55e1dde0ce6edaf80`、TheSkyBlessing `f88cdd5bcb2216d24b26e48684f4a7951a686c94` へ戻した。コミット内容を失わず、push は行っていない。親と両子 repo の AGENTS.md にこの方針を記録した。以降の worktree は作業ブランチを開始点として指定する。以下の引継ぎ確認は記載したコミットに対して有効で、master へ変更を取り込んだという意味ではない。
+
 ## コミットと新規 worktree への引継ぎ確認（2026-09-15）
 
 ユーザーのコミット指示を受け、本体・Asset の起動設定、AGENTS.md／CLAUDE.md、ナレッジを、それぞれの repo のローカルコミットへ保存した。

@@ -17,6 +17,8 @@ DevSpace は開発環境のリポジトリです。コードは次の独立し�
 
 ## Git とファイルの扱い
 
+- Asset／TheSkyBlessing の `master` へ直接コミットしない。コミット前に対象 repo のブランチを確認し、`master` 上なら作業用ブランチを作成・切替してからコミットする。
+
 - 子 repo は親の `.gitignore` 対象。コード検索と `git status` / `git diff` は対象 repo を作業ディレクトリにして行う。親の検索結果や差分だけで判断しない。
 - 各 repo のブランチ・未コミット変更を保持する。環境のセットアップで pull / checkout / reset を自動実行しない。
 - `.runtime/`、`.cache/`、`.worktrees/`、`devspace.local.conf`、`.devcontainer/.env` はローカル領域。ワールドや個人設定を共有文書へ埋め込まない。
