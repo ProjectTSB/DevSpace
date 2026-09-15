@@ -1,1 +1,9 @@
+/TheSkyBlessing/
+/Asset/
+/Asset-AnimatedJava/
+/.runtime/
+/.cache/
+/.worktrees/
+/devspace.local.conf
+/.devcontainer/.env
 *.zip

@@ -1,0 +1,17 @@
+services:
+  devspace:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+    volumes:
+      - type: bind
+        source: ..
+        target: /workspaces/DevSpace
+      - type: bind
+        source: ${TSB_WORLD_MOUNT:-../.runtime}
+        target: /workspaces/.tsb-world
+    environment:
+      DEVSPACE_CONTAINER: "1"
+      DEVSPACE_WORLD_CONFIG: "${TSB_WORLD_CONFIG:-}"
+      CLAUDE_CONFIG_DIR: /home/vscode/.claude
+    command: sleep infinity

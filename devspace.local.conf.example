@@ -1,0 +1,14 @@
+# Copy this file to devspace.local.conf. Values after = are literal text.
+# Do not add quotes; spaces, #, $, apostrophes, and backslashes are preserved.
+# World selection can be saved automatically: sh scripts/setup.sh [--container] "/path/to/world"
+# Omit the path to reuse it, or use --default-world to return to .runtime/world.
+# WORLD_PATH=
+# THE_SKY_BLESSING_PATH=
+# ASSET_PATH=
+# ANIMATED_JAVA_PATH=
+# RESOURCEPACK_URI=https://github.com/ProjectTSB/TSB-ResourcePack/releases/download/dev/resources.zip
+# JAVA_BIN=java
+# JAVA_XMS=2G
+# JAVA_XMX=4G
+# SERVER_PORT=25565
+# ACCEPT_EULA=false
