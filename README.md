@@ -75,6 +75,6 @@ sh tests/runtime.sh
 
 独立 clone の変更は親 DevSpace の `git status` には表示されないため、各リポジトリで `git status` を確認してください。child 側の `.vscode/`、`.gitattributes`、Agent の入口とナレッジは各リポジトリの履歴で管理します。他環境への共有には各リポジトリの push が必要です。
 
-rebuild 後の Java 17、実 Minecraft 起動、新規ワールド生成、コンソールの `reload` による関数・タグの追加／編集／削除反映、Asset 単独ウィンドウの言語サーバー、worktree の Git 参照まで検証済みです。通常利用の AnimatedJava `dist` では23 pack が有効になります。
+rebuild 後の Java 17、実 Minecraft 起動、新規ワールド生成、コンソールの `reload` による関数・タグの追加／編集／削除反映、Asset 単独ウィンドウの言語サーバー、worktree の Git 参照まで検証済みです。加えて、コミット済みの Asset から別 worktree で2つの小さな関数を並列実装し、統合後に共有サーバーで実行・reload、元ワールドへ復元する流れを確認しました。範囲は [並列実装の検証記録](docs/knowledge-verification.md) を参照してください。通常利用の AnimatedJava `dist` では23 pack が有効になります。
 
 AnimatedJava `master` はリンク・overlay 読込に成功しますが、本体の既存「23 pack 未満なら欠損」判定により欠損フラグが立ちます。Windows/macOS 実機、外部ワールドの W1 マウント変更、ゲームクライアントでの確認は未完了です。本体・Asset の知識整理は [知識の検証記録](docs/knowledge-verification.md) に記載しています。結果と制約は [rebuild 後の検証記録](docs/rebuild-verification.md) を参照してください。

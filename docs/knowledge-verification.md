@@ -10,6 +10,30 @@
 
 2026-09-15 再照合: AJ の指摘を受け、既存ナレッジの断定を `gpt-5.6-sol` / low で再監査した。継承・dispatch・Field 保存・Effect・Artifact・API の代表経路を追い、schedule probe の目的、永続状態の保存先、call.m の呼出前提、現行 Mob event tag、Wiki への帰属、解除経路の適用範囲を修正した。コードの静的確認であり、実機検証を追加したものではない。根拠は両 repo の sources.md、読取ログと監査結果は `.runtime/knowledge-research/knowledge-recheck/` に記録した。
 
+## 小規模な並列実装・統合・実サーバー検証（2026-09-15）
+
+コミット済みの Asset 作業ブランチを開始点に、2人の Agent が別 worktree で実装し、第三の worktree へ統合して実 Vanilla 1.20.4 サーバーで確認した。元の作業ブランチと master は変更していない。
+
+| 役割 | 作業ブランチ | 作成した変更 |
+| --- | --- | --- |
+| 計算処理 | `verify/parallel-compute` | `devspace_parallel_verify:compute`。storage の整数 Input を2倍にして Result に書く |
+| 呼出・検査 | `verify/parallel-runner` | `devspace_parallel_verify:run`。3ケースを実行し Passed／Failed を記録する |
+| 統合 | `verify/parallel-integration` | 両コミットをそれぞれ通常の merge で取り込む |
+
+Asset の開始点は `959bd690ac39a110e3a3ed5c2c30d9e1aaab76ad`。計算処理のコミットは `c0abb5e8d565a5d3ec0c1955d6e70c4e255129e5`、呼出・検査は `71ec39e103c90b9c9b330141844913eb35c19df0`、統合結果は `ea795603e0dcddf688a61ea911812c990985bb34`。変更は `Asset/data/devspace_parallel_verify/functions/` 内の2ファイルに限定し、自動 load/tick 登録や既存ゲーム機能の変更は行っていない。本体は `5d6799ed16578e8c6a7c61593bcf3d0ef22c1ff1`、AJ は `e48a116501b931a6688d5bd77e8f60c82de27ffa` を参照した。
+
+両実装と別担当の静的レビューは `gpt-5.6-sol` / low。入口・ナレッジはコミットから worktree に入り、手動コピーは不要だった。分担時は通常の委譲規約に従って対象 repo と必読文書を伝えているため、この検証を「文書指定なしの自律参照」の追加証拠としては扱わない。その確認は後述の独立した6セッションで行っている。
+
+入力と期待値は 21→42、0→0、-7→-14。統合した Asset の worktree を一時設定の ASSET_PATH に指定し、23 pack の検出と参照元を確認した。実サーバーで run を実行した結果は `{Passed: 3, Failed: 0}`、最後の入出力は `{Input: -7, Result: -14}`。reload 完了後に再実行しても同じ結果となり、前回の集計が混ざらないことを確認した。起動・reload では既存検証でも観測した minecraft:empty の再定義と Can't keep up 警告が出ている。性能評価を合格としたものではない。
+
+既定ワールド利用のコンテナで、Java と runtime/world ロックがないことを確認して元の world ディレクトリをローカル領域へ退避し、同じ既定パスに一時 world を生成した。WORLD_PATH は空のままとし、一時 config を DEVSPACE_CONFIG で渡したので、W1 マウント変更やコンテナ再作成は不要だった。これは既定 world の分岐での確認であり、任意の外部 W1 world に同じ手順を適用する説明ではない。
+
+stop 後、全 dimension の保存と終了コード0、Java の終了、両ロックの解除を確認した。一時 world を退避して元を戻し、元 world の120ファイルの SHA-256・サイズと23リンクの参照文字列が一致すること、個人 config が不変であること、runtime 直下の保存済み9ファイルを復元したことを確認した。子 repo の元ブランチ・HEAD・master と作業ツリーも変更なし。一時 worktree は通常の git worktree remove で除去し、検証コードを保持する上記3ブランチはローカルに残した。push はしていない。
+
+確認できたのは、同一 repo の別ファイルに対する小規模な並列実装、コミット、競合のない統合、参照先の選択、共有サーバーでの実行・reload、元環境への復元である。同一ファイルや共通 ID の競合解消、複数 repo を同時変更する機能、複雑な Mob/Object/Effect の実装品質、複数サーバーの同時実行まで検証済みとしない。
+
+根拠はローカル領域 `.runtime/parallel-verification/` の `integration.json`、`integration.patch`、`server.log`、`world-before.json`、`result.json` と検証ブランチのコミット。実装・読解は分担した Agent の報告、実行結果は Minecraft コンソールのログ、復元はファイルと Git の照合で確認した。
+
 ## コミット先の訂正（2026-09-15）
 
 ユーザーの指定により Asset／TheSkyBlessing の master への直接コミットを禁止した。上記2 repo の作業コミットはそれぞれ `chore/devspace-environment-and-knowledge` に保持し、現在の checkout も同ブランチへ切り替えた。ローカル master は Asset `8f661ea1003a0e519d9825c55e1dde0ce6edaf80`、TheSkyBlessing `f88cdd5bcb2216d24b26e48684f4a7951a686c94` へ戻した。コミット内容を失わず、push は行っていない。親と両子 repo の AGENTS.md にこの方針を記録した。以降の worktree は作業ブランチを開始点として指定する。以下の引継ぎ確認は記載したコミットに対して有効で、master へ変更を取り込んだという意味ではない。
@@ -53,7 +77,7 @@ README、設計の P1、既存の rebuild 検証記録、各 repo の `git statu
 
 起動経路と排他の静的読解には `gpt-5.6-sol` / low を使用した。子 repo の起動 shim は共通 DevSpace の server.sh へ接続し、参照 repo はローカル設定か既定配置から決まる。起動した worktree の自動選択はない。runtime/world ロックは二重使用を防ぐが、設定ファイル編集や `/reload` の担当を調整する機構ではない。根拠は `scripts/lib/runtime.sh` の設定解決・`runtime_acquire_locks`、`scripts/lib/common.sh`、`scripts/server.sh` と子 repo の `.vscode/server-start.sh`。読取ログは `.runtime/knowledge-research/parallel-readiness/`。
 
-既存の確認範囲は worktree の Git 参照、文書を明示コピーした worktree の指示読込、共有サーバーでの起動・reload 等である。複数の機能を並列実装し、共通 ID や文書の競合を解決して統合・実機検証する一連の確認は実施していない。別 feature の同時実機検証環境も現行 P1 の提供範囲に含まれない。今回の作業は評価と README・共有手順への反映であり、追加の worktree 作成、コード変更、commit/push、実機検証はしていない。
+既存の確認範囲は worktree の Git 参照、文書を明示コピーした worktree の指示読込、共有サーバーでの起動・reload 等である。この静的確認時点では並列実装から統合・実機検証までの確認は未実施だった。その後の小規模な別ファイル実装の確認は本書の「小規模な並列実装・統合・実サーバー検証」に記載した。共通 ID や文書の競合解消は引き続き確認対象外である。別 feature の同時実機検証環境も現行 P1 の提供範囲に含まれない。今回の作業は評価と README・共有手順への反映であり、追加の worktree 作成、コード変更、commit/push、実機検証はしていない。
 
 ## 調査範囲
 
