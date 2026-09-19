@@ -46,6 +46,10 @@ DevContainer は空の VS Code ウィンドウで `Dev Containers: Open Folder i
 
 保存後、Minecraft が対応する変更は `/reload` で反映します。サーバー停止は端末で Ctrl-C です。リソースパックは `RESOURCEPACK_URI` を使い、起動時に hash を更新します。
 
+リソースパックは既定で TSB-ResourcePack の `dev` リリースを使います。起動スクリプトが URL と SHA-1 を `server.properties` に設定するため、クライアント側でサーバーリソースパックを許可すると接続時に取得・適用されます。ローカルで編集したリソースパックを自動配信する仕組みではありません。起動時の取得と設定は検証済みですが、ゲームクライアントでの適用は未確認です。
+
+ポートを変える場合は、サーバー停止後に `devspace.local.conf` の `SERVER_PORT=25566` のような設定を追加・変更し、再起動します。DevContainer の明示的な自動転送設定は `.devcontainer/devcontainer.json` の `25565` 固定で、`SERVER_PORT` とは連動しません。変更後のポートは VS Code の「ポート」欄から転送を追加し、表示された転送先へ接続してください。この設定経路は `scripts/lib/runtime.sh` とコンテナ設定のコードで確認したもので、変更ポートでのクライアント接続は未検証です。
+
 並列作業には各リポジトリの通常の worktree を使います。例えば DevSpace ルートから Asset の worktree を作る場合は次の通りです。
 
 ```sh
