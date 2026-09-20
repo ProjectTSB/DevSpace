@@ -1,0 +1,7 @@
+{
+  "name": "devspace-verification-client",
+  "private": true,
+  "dependencies": {
+    "minecraft-protocol": "1.68.0"
+  }
+}

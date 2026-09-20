@@ -4,7 +4,7 @@ ARG USERNAME=vscode
 
 # statusline.sh の実行時依存(jq)を保証する
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends jq openjdk-17-jre-headless \
+  && apt-get install -y --no-install-recommends jq openjdk-17-jre-headless python3 \
   && rm -rf /var/lib/apt/lists/*
 
 # Used to persist bash history as per https://code.visualstudio.com/remote/advancedcontainers/persist-bash-history

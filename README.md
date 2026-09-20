@@ -77,6 +77,12 @@ sh tests/setup.sh
 sh tests/runtime.sh
 ```
 
+実サーバーでの機能検証は、対象repoに保存したシナリオを共通runnerへ渡すと再実行できます。専用worldで実行し、入力・期待値・実測値・失敗と終了結果を試行ごとに保存します。Linux / DevContainer向けの手順と前提は [機能検証](docs/runtime-verification.md) を参照してください。
+
+```sh
+sh scripts/verify.sh Asset/tests/scenarios/dual-rhythm.json
+```
+
 独立 clone の変更は親 DevSpace の `git status` には表示されないため、各リポジトリで `git status` を確認してください。child 側の `.vscode/`、`.gitattributes`、Agent の入口とナレッジは各リポジトリの履歴で管理します。他環境への共有には各リポジトリの push が必要です。
 
 rebuild 後の Java 17、実 Minecraft 起動、新規ワールド生成、コンソールの `reload` による関数・タグの追加／編集／削除反映、Asset 単独ウィンドウの言語サーバー、worktree の Git 参照まで検証済みです。加えて、コミット済みの Asset から別 worktree で2つの小さな関数を並列実装し、統合後に共有サーバーで実行・reload、元ワールドへ復元する流れを確認しました。範囲は [並列実装の検証記録](docs/knowledge-verification.md) を参照してください。通常利用の AnimatedJava `dist` では23 pack が有効になります。
