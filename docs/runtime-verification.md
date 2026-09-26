@@ -39,7 +39,7 @@ sh scripts/verify.sh Asset/tests/scenarios/dual-rhythm.json
 
 `{"name":"advance duration","ticks":300}` は凍結状態から`tick step` で指定tick数を進め、gametimeの実測差が指定値に一致するまで待つ。実時間300/20秒をsleepする方式ではない。`first_join` の明示呼出しや信仰タグの設定は必要な場合だけfixtureに書き、成功条件にも対象状態を入れる。通常ログインを試す場合は別のシナリオとして扱う。
 
-シナリオは対象のAsset／本体repoに保存する。DevSpaceのコミットだけでは共有されない。新しいworktreeのコードを検証する場合は、通常設定の参照repoとシナリオの対象を揃えてから実行し、result.jsonのpathを確認する。
+シナリオは対象のAsset／本体repoに保存する。DevSpaceのコミットだけでは共有されない。シナリオのパスやシェルの開始位置から参照repoが自動選択される仕組みではない。worktreeの検証はDevSpace側で通常設定の `ASSET_PATH` / `THE_SKY_BLESSING_PATH` 等を対象に揃え、シナリオも同じ作業コピーから渡す。参照先を変える前に通常サーバーを停止し、実行後は `result.json` の `repositories` に記録されたpathを照合する。検証中の参照コードは編集せず、終了後に必要なら元の参照設定へ戻す。
 
 ## 結果と失敗を残す
 
@@ -59,4 +59,4 @@ sh scripts/verify.sh Asset/tests/scenarios/dual-rhythm.json \
 
 `stop`で終了しない場合だけ、runnerが作ったプロセスグループへTERM、最後にKILLを送る。強制終了した試行は成功にせず、既存worldや別プロセスのロックは削除しない。ログ・worldは失敗後も削除しない。外部からrunner自体をSIGKILLした場合はfinallyを実行できないため、`running` の結果を合格と読まず、記録PIDの実プロセスを確認する。
 
-完了時は対象repoのsourcesと領域文書へ再利用できる知見を戻す。失敗時の条件、何を観測したか、再試行で変えた条件、確認できた範囲を書く。複数条件を同時に変えて直った場合は原因を一つに断定しない。参照：[2026-09-19の運用監査](knowledge-verification.md)。
+失敗時の条件・観測・再試行で変えた条件・確認できた範囲は実行記録に残す。複数条件を同時に変えて直った場合は原因を一つに断定しない。完了時は [ナレッジの採用基準](knowledge-maintenance.md#更新時に残すもの) で再利用できる結論を選び、対象repoの既存の該当節へ統合する。sourcesとの同時更新や、試行ごとの成否・未検証項目の一覧の転記は不要。結論を支える確認範囲と証拠への参照だけを必要に応じて残す。

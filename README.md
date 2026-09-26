@@ -40,9 +40,17 @@ DevContainer 用のマウント設定も setup が自動生成します。ワー
 
 ## 起動
 
-DevContainer は空の VS Code ウィンドウで `Dev Containers: Open Folder in Container...` を選び、DevSpace を指定して開きます。初期ワークスペースは Asset です。別リポジトリはコンテナ端末から `code -n /workspaces/DevSpace/TheSkyBlessing` のように開くか、既存コンテナへ attach します。`shutdownAction` は `none` なので全ウィンドウを閉じても停止しません。停止は Remote Explorer の `Stop Container` を使います。
+DevContainer は空の VS Code ウィンドウで `Dev Containers: Open Folder in Container...` を選び、DevSpace を指定して開きます。初期ワークスペースと端末の開始位置は `/workspaces/DevSpace` です。ネイティブでもDevSpaceのフォルダーを開きます。`shutdownAction` は `none` なので全ウィンドウを閉じても停止しません。停止は Remote Explorer の `Stop Container` を使います。
 
-各リポジトリを単独の VS Code ウィンドウで開き、`Open SkyBlock Server` タスクを実行します。端末からは `sh scripts/server.sh`、確認だけなら `sh scripts/server.sh --check`、pack の準備だけなら `sh scripts/server.sh --prepare` を使います。Windows の Git が標準場所以外にある場合は、タスクの `windows.command` を実際の `bash.exe` のパスへ変更してください。
+DevSpaceのウィンドウで `Open SkyBlock Server` タスクを実行します。DevSpaceの端末からは `sh scripts/server.sh`、確認だけなら `sh scripts/server.sh --check`、pack の準備だけなら `sh scripts/server.sh --prepare` を使います。Windows の Git が標準場所以外にある場合は、タスクの `windows.command` を実際の `bash.exe` のパスへ変更してください。
+
+すでにAssetを開いているコンテナでは、端末から `code -n /workspaces/DevSpace` でDevSpaceを開き、そこで新しいAIセッションを始めてください。CLIを使う場合もDevSpaceへ `cd` してから起動します。AIセッション開始後にシェルだけを `cd` しても、開始時の規約読込を切り替えたことにはしません。
+
+### AIへの依頼とコード補完
+
+**通常のAIへの依頼は、神器・本体・環境変更のいずれもDevSpaceから始めます。** AIがDevSpaceの共通規約に従って対象repoのナレッジを読み、検索・編集・Git操作はそのrepoで行います。例えばAssetの差分は `git -C Asset diff` で確認します。DevSpaceでの `git status` だけでは子repoの変更は分かりません。
+
+DevSpaceのウィンドウはAIへの依頼・環境操作・検証に使い、DHP 3.4.19向けの `.vscode/settings.json` で全packを自動索引から除外する設定にしています。補完・診断が必要なときは `code -n /workspaces/DevSpace/Asset` などで対象repoだけを別ウィンドウに開きます。そこではrepo自身の設定を使います。通常のAIセッションはDevSpace側で続けます。動作確認の範囲は [検証記録](docs/rebuild-verification.md) を参照してください。
 
 保存後、Minecraft が対応する変更は `/reload` で反映します。サーバー停止は端末で Ctrl-C です。リソースパックは `RESOURCEPACK_URI` を使い、起動時に hash を更新します。
 
@@ -50,21 +58,27 @@ DevContainer は空の VS Code ウィンドウで `Dev Containers: Open Folder i
 
 ポートを変える場合は、サーバー停止後に `devspace.local.conf` の `SERVER_PORT=25566` のような設定を追加・変更し、再起動します。DevContainer の明示的な自動転送設定は `.devcontainer/devcontainer.json` の `25565` 固定で、`SERVER_PORT` とは連動しません。変更後のポートは VS Code の「ポート」欄から転送を追加し、表示された転送先へ接続してください。この設定経路は `scripts/lib/runtime.sh` とコンテナ設定のコードで確認したもので、変更ポートでのクライアント接続は未検証です。
 
-並列作業には各リポジトリの通常の worktree を使います。例えば DevSpace ルートから Asset の worktree を作る場合は次の通りです。
+### 並列開発
+
+並列作業の個別担当は、割り当てたrepoのworktreeから開始します。通常の依頼・分担・統合・共通検証はDevSpace側で管理します。例えばDevSpaceルートからAssetのworktreeを作る場合は次の通りです。
 
 ```sh
 git -C Asset worktree add -b feature-name ../.worktrees/feature-name/Asset
 ```
 
-worktree を別ウィンドウで開き、そこで編集したコードをサーバーで使う場合はローカル設定の `ASSET_PATH` 等をそのパスにします。起動したウィンドウの worktree が自動選択される仕組みではありません。サーバーを停止してから参照先を変更し、再起動時に表示される参照元を確認します。
+個別担当にはDevSpaceの場所と環境規約、worktreeのパス、変更対象、依存repoの参照先、読む規約を渡します。複数の担当で同じ作業ツリーを同時編集しません。そこで編集したコードをサーバーで使う場合は、DevSpace側でローカル設定の `ASSET_PATH` 等をそのパスにします。起動したウィンドウのworktreeが自動選択される仕組みではありません。サーバーを停止してから参照先を変更し、再起動時に表示される参照元を確認します。
 
-並列に分離されるのは作業ツリーです。サーバーとワールドは共通の1組を順番に使い、設定変更・起動停止・`/reload` の担当を揃えます。runtime/world のロックは二重使用を防ぎますが、設定ファイルの編集や作業者間の検証順序は調整しません。別 feature の同時実機検証用の環境は用意していません。
+共有DevSpaceの編集・Git操作は一人の統合担当に集約し、開始時に各担当へ知らせます。子repoの担当はコード固有の知識を自分のworktreeへ残し、共通知見は根拠・適用条件・修正案を統合担当へ渡します。統合担当が未マージの子repo変更に依存しないと確認した共通知識は、DevSpaceの `main` へ逐次commit・pushします。引渡しから公開までの手順は [共通知識の逐次反映](docs/knowledge-maintenance.md#共通知識の逐次反映) を参照してください。
+
+知識更新だけを目的にDevSpaceを担当ごとに分離する必要はありません。DevSpaceのスクリプト・環境構成そのものを並列変更する場合は、その実装用worktreeを用意します。
+
+並列に分離されるのは作業ツリーです。通常のサーバーとワールドは共通の1組を使い、設定変更・起動停止・`/reload` の担当を揃えます。自動検証の `scripts/verify.sh` は専用worldを試行ごとに作り、同時実行は1件です。DevSpace側で順序と参照repoを揃え、検証中の参照コードは編集しません。runtime/worldやrunnerのロックは、設定編集や作業者間の順序を調整するものではありません。
 
 新しい worktree に元の作業ツリーの未コミット変更・未追跡ファイルは引き継がれません。ナレッジや起動設定を含め、必要な開始状態が新しい作業コピーにあることを確認してください。[ナレッジの共有と検証](docs/knowledge-maintenance.md#共有と検証) を参照します。AnimatedJava の生成環境と性能評価は今回のセットアップ対象外です。
 
 ## Agent の開発ナレッジ
 
-TheSkyBlessing と Asset の各 repo に `AGENTS.md` と `docs/knowledge/` を配置しています。毎回の規約と、API・神器・Mob など実装・レビュー・調査の対象に応じて Agent が選んで読む文書を定義しています。`CLAUDE.md` も同じ規約を参照します。
+共通規約・ナレッジ参照・更新方針はDevSpaceで一元管理します。TheSkyBlessingとAssetの `AGENTS.md` は、子repoを開始位置とする通常のAI利用を推奨せず、DevSpaceへ案内するために残します。子repoの `docs/knowledge/` にはコード固有の構造・契約・実例を置き、コードと同じブランチで更新します。AIはDevSpaceの案内から必要な本文を読みます。並列担当にはDevSpaceの規約を引き渡し、共通ルールを子repoへ複製しません。各 `CLAUDE.md` は同じ場所の `AGENTS.md` を参照します。
 
 レビューの根拠・採用状況は各 repo の `docs/knowledge/sources.md`、知識の更新と共有方法は [ナレッジの配置と更新](docs/knowledge-maintenance.md) を参照してください。子 repo の文書は各 repo 側の変更として管理します。
 

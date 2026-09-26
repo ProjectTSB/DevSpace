@@ -1,10 +1,12 @@
 # 初期ナレッジの調査・検証記録
 
+各日付のコード・指示・試験条件に対する履歴であり、現在の推奨運用は [ナレッジの配置と更新](knowledge-maintenance.md) を参照する。神器1412の監査・試験は当時の未コミット実装が対象で、後続の仕様訂正やEffect処理変更後の正しさを保証しない。未公開ファイルのパスは当時の識別用であり、このDevSpaceの取得だけでは再実行できない。
+
 ## 運用監査で見つかった改善点の修正（2026-09-19）
 
 下記の神器1412の監査で見つかった3点を修正した。DevSpace・Asset・本体のAGENTSに、省略された読取出力を未読として再取得する規約を追加した。Assetだけを編集する場合も、状態・装備・補正の設計は本体のarchitecture、接触・範囲・inventoryはruntime-componentsの対象節へ進む。ユーザーの追加の文書指定を必要とする方式にはしていない。
 
-検証の操作・前提・期待値は [Assetのシナリオ](../Asset/tests/scenarios/dual-rhythm.json) に保存し、DevSpaceの [共通runner](runtime-verification.md) で実行する。専用world・ポート・最大ヒープ4GB・プロトコルクライアントを準備し、対象repoのHEAD・差分・未追跡内容・ハッシュ、各stepの実測値、失敗・再試行との関連・停止方法を保存する。通常worldを置換しない。全stepの期待値一致に加え、正常終了・全dimension保存・検証中の参照repo不変を成功条件にした。
+検証の操作・前提・期待値は 当時のAsset作業コピーの `tests/scenarios/dual-rhythm.json` に保存し、DevSpaceの [共通runner](runtime-verification.md) で実行する。専用world・ポート・最大ヒープ4GB・プロトコルクライアントを準備し、対象repoのHEAD・差分・未追跡内容・ハッシュ、各stepの実測値、失敗・再試行との関連・停止方法を保存する。通常worldを置換しない。全stepの期待値一致に加え、正常終了・全dimension保存・検証中の参照repo不変を成功条件にした。
 
 ### 共通runnerを作成中に観測した失敗と修正
 
@@ -33,7 +35,7 @@ setupテスト成功、runtimeの13テスト成功、検証runnerの7単体テ�
 
 ## 通常の神器作成依頼による運用監査（2026-09-19）
 
-神器1412「双律の印章」の作成セッションを、環境が意図した Agent の行動を引き出したかという観点で監査した。仕様の追加確認を含む元セッション、現在の29関数・15件のタグ登録、Asset の知識更新、専用サーバーのログを照合した。今回の監査ではサーバーを再起動せず、実装コードも変更していない。
+神器1412「双律の印章」の作成セッションを、環境が意図した Agent の行動を引き出したかという観点で監査した。仕様の追加確認を含む元セッション、監査時点の29関数・15件のタグ登録、Asset の知識更新、専用サーバーのログを照合した。今回の監査ではサーバーを再起動せず、実装コードも変更していない。
 
 **結論:** この1件では、文書名や検証・記録の追加指示なしに、関連知識の参照、不明点の確認、既存の抽象構造を使った実装、実サーバー検証、知識更新まで実行された。以前の誘導なしの読取確認に加え、実際の機能実装で運用が成立した証拠である。ただし、他モデル・他カテゴリでの成功率や、すべての必読本文の取得、検証の再現性まで合格とするものではない。
 
@@ -52,7 +54,7 @@ setupテスト成功、runtimeの13テスト成功、検証runnerの7単体テ�
 
 ### コードと実行結果の照合
 
-[1412のtick](../Asset/Asset/data/asset/functions/artifact/1412.seal_of_dual_rhythm/trigger/tick.mcfunction) は移譲時刻から待ち時間を計算し、有効な軽減タグがある間だけ接触を判定する。[解除処理](../Asset/Asset/data/asset/functions/artifact/1412.seal_of_dual_rhythm/trigger/remove_guard.mcfunction) は自分の補正とタグを即時解除し、Effect APIへ削除を予約する。[0396の補正追加](../Asset/Asset/data/asset/functions/effect/0396.dual_rhythm_boost/modifier/add.mcfunction) はgivenとre-givenから同じUUIDを設定する。本体のEffectData生成・foreach・modifier追加と照合し、この状態管理に明らかな契約違反は見つからなかった。29関数の参照先と15件のタグ登録は監査でも確認した。
+当時の1412の `trigger/tick.mcfunction` は移譲時刻から待ち時間を計算し、有効な軽減タグがある間だけ接触を判定する。同 `trigger/remove_guard.mcfunction` は自分の補正とタグを即時解除し、Effect APIへ削除を予約する。Effect 0396の `modifier/add.mcfunction` はgivenとre-givenから同じUUIDを設定する。本体のEffectData生成・foreach・modifier追加と照合し、この状態管理に明らかな契約違反は見つからなかった。29関数の参照先と15件のタグ登録は監査でも確認した。
 
 サーバーログでは、19:29:26に自身の防御倍率0.9、接触後の19:29:35に自身1.0・相手2人の攻撃倍率1.0/1.2、300tickの進行後に攻撃倍率1.0を確認できる。初回イベント処理前の二重giveでも1.2、再付与でDurationが199から300に戻る記録もある。最終移譲時刻は522、待ち時間終了付近の観測はgametime 1721・1722で防御倍率1.0、1723で0.9。単なる「60秒待った」という報告より、この実際の観測点を根拠にする。
 

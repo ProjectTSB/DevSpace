@@ -2,6 +2,16 @@
 
 実施日: 2026-09-14。対象は再構築後の Linux DevContainer。Minecraft クライアントのゲーム画面ではなく、実 Vanilla サーバーのコンソールから `reload` 等を実行した。
 
+## DevSpaceを入口とする運用
+
+現在の標準は、AIの開始位置とコンテナの初期 `workspaceFolder` を `/workspaces/DevSpace` にし、コード補完が必要な場合だけ対象repoを別ウィンドウで開く構成。通常の端末・サーバーtaskはDevSpaceを基準にし、並列担当は個別worktreeを使う。DevSpaceの `.vscode/settings.json` にDHP 3.4.19向けの自動索引除外を設定している。
+
+DevSpace起点の運用について、初期フォルダー・端末・サーバーtaskの設定、各 `CLAUDE.md` から同じ場所の `AGENTS.md` への参照、関連文書のリンク先、子repoでのナレッジ検索・Gitルートを確認した。共通規約はDevSpaceに集約し、子repoのAGENTSは開始位置の案内だけとした。通常の参照経路はDevSpaceから対象作業コピーのナレッジREADMEへ直接進む。共通規約の複製指示と子AGENTSの旧見出しへの参照が残っていないことを静的に確認した。これらは設定と案内経路の確認であり、新しいAIセッションによる自発的な参照・実装の実測ではない。
+
+setupテストとruntimeの13テストは成功した。
+
+初期フォルダー変更後のコンテナ再作成、DHP 3.4.19での索引除外・表示・補完、新しいAIセッションでの規約参照は今回未確認。下表のAsset単独ウィンドウの検証は以前の条件の記録である。既存コンテナでは `code -n /workspaces/DevSpace` から新しいAIセッションを開始できる。
+
 ## 確認できたこと
 
 | 対象 | 結果・根拠 |

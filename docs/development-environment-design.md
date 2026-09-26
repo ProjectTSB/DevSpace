@@ -12,7 +12,7 @@ Minecraft が編集対象の datapack を直接読む構成を採用する。起
 
 共通の起動処理をネイティブ OS と任意の DevContainer で使う。サーバーは起動処理を実行した環境の Java プロセスとして動かす。AnimatedJava のブランチ名ではなく、現在の作業ツリーにある pack を起動時に自動検出してリンクする。将来追加されたモデルの pack も同じ検出規則で扱う。並列開発は任意の追加機能とする。
 
-DevContainer を利用する場合のワークスペース構成は A を採用する。共通コンテナに DevSpace 全体をマウントし、各 VS Code ウィンドウは編集対象の repo だけを開く。DevSpace 全体を開いたウィンドウを維持する必要はない。
+DevContainer を利用する場合のワークスペース構成は A を採用する。共通コンテナにDevSpace全体をマウントし、通常のAI開発はDevSpaceを開いて始める。対象repoだけを開くウィンドウはコード補完用、個別worktreeは並列担当用とし、依頼・統合・共通検証はDevSpace側で管理する。
 
 外部ワールドの接続は W1（指定したワールド単体を追加マウント）、任意の並列 feature 開発は P1（同じ環境内で repo ごとの worktree）を採用する。DevContainer 利用時は共通コンテナ内で worktree を別ウィンドウとして開く。
 
@@ -209,27 +209,27 @@ macOS 等の Docker Desktop 利用では、多数の小ファイルのホスト�
 
 検索、VS Code の監視、language server の索引は別々に設定する。`.runtime/`、ログ、キャッシュ、他 feature の作業コピー、AnimatedJava の大量生成物を通常探索から外す。Asset 本体は多数の手書き実装なので全体除外せず、対象 ID / 機能へ探索を絞る。生成物の除外で補完が壊れないよう、公開宣言や必要な呼出窓口は残す。
 
-ユーザーの DHP 運用実績に基づき、全 datapack を一つの VS Code ワークスペースで同時解析する構成は標準にしない。編集対象のリポジトリを単独のワークスペースルートとして開く。Explorer の非表示設定や親の `.gitignore` だけで DHP の解析対象も除外できるとは扱わない。
+全datapackを一つのVS Codeワークスペースで同時解析する構成は標準にしない。AIの入口はDevSpaceに統一し、そのウィンドウではDHPの自動索引対象を除外する。補完・診断は対象repoだけを別ウィンドウで開いて行う。Explorerの非表示設定や親の `.gitignore` だけでDHPの解析対象も除外できるとは扱わない。
 
-## リポジトリ単位のワークスペースと DevContainer の選択肢
+## AIの入口とコード補完のワークスペース
 
 コンテナから見えるファイル、VS Code で開くワークスペース、Minecraft が読む pack は別々に選べる。コンテナには全リポジトリをマウントしつつ、VS Code は `Asset/` だけを開き、サーバーは全 pack を読む構成が可能。`workspaceMount` と `workspaceFolder` は別設定である。[VS Code のマウント設定](https://code.visualstudio.com/remote/advancedcontainers/change-default-source-mount)
 
-2026-09-14 のユーザー選択により A を採用する。以下の B / C は比較の記録として残し、今回の標準構成には追加しない。DevContainer の利用自体は引き続き任意であり、ネイティブ利用も維持する。DevContainer 設定は変更・rebuild 済み。
+共通コンテナのAを採用し、通常のAI開発の開始位置はDevSpaceに統一する。コード補完用のrepo別ウィンドウと、並列担当のworktreeは用途を分ける。以下のB / Cは比較候補であり標準構成には追加しない。DevContainerの利用は任意で、ネイティブ利用でもAIはDevSpaceから開始する。過去のrebuild検証と今回の初期フォルダー変更の確認範囲は [検証記録](rebuild-verification.md) で区別する。
 
 | 案 | 構成 | 日常操作と利点 | 主な負担 |
 | --- | --- | --- | --- |
-| A: 共通コンテナで一つの repo を開く（採用） | DevSpace 全体を一つのコンテナへマウント。各 VS Code ウィンドウは一つの repo を開く | 共通環境とサーバーを維持し、普段のフォルダ切り替えで編集対象を選べる | 接続先コンテナの共有と寿命を整理する必要がある。Agent のアクセス範囲はマウント全体 |
+| A: 共通コンテナでDevSpaceを入口にする（採用） | DevSpace全体をマウントし、初期フォルダーもDevSpace。コード補完用に対象repoを別ウィンドウで開く | AIの依頼・統合・検証の入口を固定し、必要なrepoの規約とAPIへ進める | AIの開始位置とコード操作先を区別し、DevSpaceでDHPが全packを索引化しない設定が必要 |
 | B: repo ごとのコンテナ | 各 repo の VS Code ウィンドウがそれぞれのコンテナへ接続。共通イメージを使う | 独立 clone なので、その repo だけのマウントで Git が動く。repo ごとの環境・プロセス分離ができる | 各 repo の DevContainer 入口、複数コンテナの管理、サーバーの集約が必要 |
 | C: VS Code はネイティブ、Agent はコンテナ | ホストで対象 repo を開き、Agent は同じソースをマウントしたコンテナで実行 | 既存の DHP とエディタ操作を維持しやすい | コンテナ内 Agent とホストのエディタを接続する手順が必要。拡張機能との一体的な操作は方式ごとに確認 |
 
-### A: 共通コンテナと単独ワークスペース
+### A: DevSpaceからのAI開発とrepo単位のコード補完
 
-採用する構成。コンテナ内には `/workspaces/DevSpace` 一式を置き、たとえば VS Code の初期 `workspaceFolder` を `/workspaces/DevSpace/Asset` にする。DevSpace 全体を DHP に一度読ませてから切り替えることを日常の必須手順にしない。`workspaceFolder` は初期フォルダの指定であり、独自の開発モードではない。
+コンテナ内には `/workspaces/DevSpace` 一式を置き、初期 `workspaceFolder` も `/workspaces/DevSpace` にする。通常のAIセッションはここから開始する。既存のDevSpaceのtaskと `scripts/server.sh`・`scripts/verify.sh` を使い、検索・編集・Git操作は対象repoで行う。DevSpaceの指示で子repoのナレッジREADMEと対象領域の本文を読む。開始位置だけで子repoの全文が自動読込される前提にはしない。
 
-初回は空のウィンドウから `Dev Containers: Open Folder in Container...` で DevSpace の設定を使い、接続後は `workspaceFolder` の対象 repo を直接開く手順を用意する。その repo はワークスペースを開くまでに取得しておく。DevSpace 全体を通常のワークスペースとして開く工程や、親フォルダのウィンドウを開き続ける工程は要求しない。
+初回は空のウィンドウから `Dev Containers: Open Folder in Container...` でDevSpaceを開く。既存コンテナでAsset等を開いている場合は `code -n /workspaces/DevSpace` で入口を開ける。新しいAIセッションをDevSpaceで始め、既存セッション内のシェルのcdだけで規約の読込を切り替えたと扱わない。
 
-コンテナへ接続した後は、VS Code の「フォルダーを開く」やコンテナ内の `code` コマンドで対象 repo を開く。複数を同時に扱う場合は、一つの multi-root にまとめず、同じコンテナに接続した別ウィンドウで一つずつ開く。現在のコンテナ内フォルダを `code` から開く操作は [Dev Containers の標準機能](https://code.visualstudio.com/docs/devcontainers/containers#_opening-a-terminal) である。複数ウィンドウの DHP 負荷は合算されるので、不要なワークスペースは閉じる。
+コード補完・診断が必要ならコンテナ内の `code -n /workspaces/DevSpace/Asset` 等で対象repoだけを別ウィンドウに開く。通常のAIセッションはDevSpace側で続ける。複数repoを一つのmulti-rootへ追加する必要はない。並列作業の個別担当は割り当てたworktreeから開始し、依存repoの参照先と規約も渡す。現在のコンテナ内フォルダを `code` から開く操作は [Dev Containers の標準機能](https://code.visualstudio.com/docs/devcontainers/containers#_opening-a-terminal) である。
 
 既存コンテナへ新しいウィンドウを接続する手段には `Dev Containers: Attach to Running Container...` がある。ただし attach 用の設定はローカルに保存され、通常の `devcontainer.json` と同じ全設定・初期化処理を使うものではない。チーム向けの構築・ツール導入は共有の DevContainer 定義へ残す。[Attach の公式仕様](https://code.visualstudio.com/docs/devcontainers/attach-container)
 
@@ -249,9 +249,9 @@ DevSpace 外での単独 clone にも対応した DevContainer を提供する�
 
 Asset と TheSkyBlessing は各 repo の `.vscode/settings.json` に `datapack.env.detectionDepth: 1` 等を持つ。repo ルートをそのままワークスペースにすると、これら既存設定を利用できる。Asset では `Asset/data/minecraft/functions/declares.d.mcfunction` が本体の API 等を外部宣言しており、本体の実装全体をワークスペースへ追加せずに補完・検査を補える。API を変更した場合は宣言の更新が必要で、宣言が実装の理解や検証を代替するものではない。
 
-サーバーの pack 自動検出はエディタのワークスペース範囲に連動させず、DevSpace 内の対象リポジトリを探す。A なら同じコンテナ内で全ソースを参照できる。既存の「Open SkyBlock Server」task は TheSkyBlessing にだけあるため、Asset 単独ウィンドウにも起動入口を設ける場合は、共通起動処理を呼ぶ薄い task にする。起動のためだけに DevSpace 全体をワークスペースへ追加しない。
+使用する言語サーバーはDHP 3.4.19を前提とする。DevSpaceの `.vscode/settings.json` は `datapack.env.exclude` を設定して全packを自動索引から外す。これはDevSpaceのウィンドウの設定であり、単独で開いた子repoの設定を変更しない。サーバーのpack自動検出はエディタの範囲に連動せず、ローカル設定で選んだrepoを参照する。DevSpaceと両子repoの「Open SkyBlock Server」taskは同じ共通起動処理を使う。
 
-各 repo の `AGENTS.md` / `CLAUDE.md` とその知識を使う方針も維持する。ワークスペースを絞ることはファイルアクセスの隔離ではなく、Agent はマウントされた他 repo を必要に応じて参照できる。DHP にはそれらを一括でワークスペース登録する必要がない。
+共通規約はDevSpaceの `AGENTS.md`、コード固有の知識は各repoの `docs/knowledge/` を参照する。ワークスペースを絞ることはファイルアクセスの隔離ではなく、Agent はマウントされた他 repo を必要に応じて参照できる。DHP にはそれらを一括でワークスペース登録する必要がない。
 
 検証は DHP の対象が開いた repo に限定されること、外部宣言が利用できること、Git が動くこと、Agent の知識が読み込まれること、サーバーが全 pack を参照できることに絞る。AJ の性能比較は行わない。
 
@@ -271,13 +271,15 @@ P1 は同じ実行環境内で作成・利用する運用を基本にする。De
 
 デバッグ先の切り替えは、選んだ方式の作業コピーをサーバーの参照元に指定する案とする。ローカル設定で repo ごとの参照パスを指定でき、未指定の repo は通常配置を使う。例えば Asset だけ feature のコピー、本体と AJ は通常配置という組み合わせにできる。起動時に解決した参照元を表示し、その repo ごとに pack を自動検出してリンクする。マウント済みの作業コピー間なら、コンテナの再構築や Git の checkout は不要で、サーバーを停止・参照元を変更・再起動する。以後の通常編集は `/reload` で反映する。共有コンテナ内で Agent 同士のファイルアクセスまで分離する構成ではない。
 
-単一 repo の feature 開発なら、その repo の通常の `git worktree` で作業コピーを分ける。コーディングだけの Agent 環境にサーバーや3リポジトリ一式のコピーを必須にしない。必要な知識は各 repo に持たせ、他 repo のコード参照が必要な場合には参照先も利用できるようにする。
+単一 repo の feature 開発なら、その repo の通常の `git worktree` で作業コピーを分ける。コーディングだけの Agent 環境にサーバーや3リポジトリ一式のコピーを必須にしない。DevSpaceの共通規約と対象作業コピーの固有知識を参照できるようにし、他repoのコード参照が必要な場合には参照先も渡す。
+
+共通知識の蓄積のためにDevSpace全体をfeatureごとに分離しない。共有DevSpaceの編集・Git操作は一人の統合担当へ集約する。子repoの未マージ変更に依存しない知見は、子repoの統合を待たずDevSpaceの `main` へ逐次反映・公開する。コード固有の知識は子repoのworktreeで管理する。DevSpaceのスクリプト・環境構成を並列実装する場合だけ、その実装用worktreeも分ける。
 
 複数 repo にまたがる feature では、変更する repo ごとに作業コピーを用意する。環境一式を分離したい場合は DevSpace を別配置し、初期セットアップで各 repo を取得する方式も選べる。親への `git worktree` だけでは Git 管理外の clone は複製されず、各 repo のブランチも連動しない。
 
 各 repo の worktree をコンテナへ渡す場合は、worktree 外にある共通 Git 管理領域も参照可能にする必要がある。単独ディレクトリのマウントで完結させたい場合は独立 clone のほうが単純。submodule 固有の制約は減るが、同じ作業コピーを複数 Agent で共有するだけでは編集を分離できない。[Git の worktree 仕様](https://git-scm.com/docs/git-worktree)
 
-feature ごとのサーバーやコンテナは用意せず、共通環境のサーバーを一つ使う。起動時に選択した作業コピーから pack 一式を自動検出してリンクする。P1 の元 repo と worktree は同じ DevSpace マウント内に置くため、デバッグ先を切り替えるたびにマウントを組み直す必要はない。独自のブランチ操作を必須にしない。
+通常開発のサーバーは共通の1組を使い、起動時に選択した作業コピーからpack一式を自動検出してリンクする。自動検証は共通runnerが専用worldで1件ずつ実行する。参照repoの切替と検証順序はDevSpace側が調整し、検証中の参照コードは編集しない。P1の元repoとworktreeは同じDevSpaceマウント内に置くため、デバッグ先を切り替えるたびにマウントを組み直す必要はない。独自のブランチ操作を必須にしない。
 
 通常編集の `/reload` と、feature の切り替えは区別する。feature 切り替え時は旧コードの schedule や storage が残ることがあるため停止を基本にする。停止・再起動でも永続データは戻らない。テスト用ワールドの復元は必要に応じて明示的に行い、切り替えだけで自動消去しない。
 
@@ -295,41 +297,38 @@ Codex は開始時にプロジェクトルートから作業ディレクトリ�
 
 Claude Code では `CLAUDE.md` が読み込まれるため、各リポジトリの `CLAUDE.md` に `@AGENTS.md` を記述して同じ本文を読み込ませる。これは Claude Code の import 機能を使い、Windows のファイル symlink を要求しない。[Claude Code のメモリ・import 仕様](https://code.claude.com/docs/en/memory)
 
-以下のうち DevSpace / TheSkyBlessing / Asset の入口と知識を作成済み。Asset-AnimatedJava 自体の入口・知識は今後の対象であり、今回作成していない。
+共通規約とAIへの参照・更新指示はDevSpaceに集約する。子repoのAGENTS.mdは、ここをpwdにした通常のAI開発を推奨せずDevSpaceへ案内するためだけに置く。コード固有の知識は、コードと同じブランチで管理するため子repoに残す。
 
 ```text
 DevSpace/
-  AGENTS.md                    # 環境共通の必須知識・各repoの指示を読む手順
+  AGENTS.md                    # 共通規約・対象repoのナレッジを読む指示
   CLAUDE.md                    # @AGENTS.md
+  docs/knowledge-maintenance.md # 知識の採用・配置・更新方針
   TheSkyBlessing/
-    AGENTS.md                  # 本体開発の必須知識・詳細文書への案内
+    AGENTS.md                  # DevSpaceからの開始を案内
     CLAUDE.md                  # @AGENTS.md
-    docs/knowledge/...
+    docs/knowledge/...         # 本体コード固有の構造・契約
   Asset/
-    AGENTS.md                  # Asset開発の必須知識・詳細文書への案内
+    AGENTS.md                  # DevSpaceからの開始を案内
     CLAUDE.md                  # @AGENTS.md
-    docs/knowledge/...
-  Asset-AnimatedJava/          # 今回は未作成（当初の将来構成）
-    AGENTS.md                  # 生成物の扱い・連携規約・詳細文書への案内
-    CLAUDE.md                  # @AGENTS.md
-    docs/knowledge/...
+    docs/knowledge/...         # Assetコード固有の構造・契約
 ```
 
-DevSpace だけに入口を置くと、各 repo を Git ルートとして直接開いた Agent が知識を受け取れない場合がある。各リポジトリに入口とその開発に必要な知識を持たせる。DevSpace から作業する Agent には、編集対象リポジトリの `AGENTS.md` を明示的に読むようルートの指示で定める。sub-agent へ委譲する場合も、対象リポジトリの入口と必須文書を渡し、編集前に読むことをタスクに含める。
+DevSpaceから対象repoのナレッジREADMEへ直接進み、関連領域を読む。並列担当にはDevSpaceのAGENTS.mdの所在と依存repoの参照先を渡し、担当worktreeのナレッジを使わせる。共通規約をworktreeや子repoのAGENTS.mdへ複製せず、子repo単体で規約を完結させることは保証しない。
 
 親の `.gitignore` により、DevSpace からの通常検索では各 repo が対象外になり得る。ルートの入口に repo の配置を明記し、コード検索・差分確認は対象 repo を作業ディレクトリにして行うよう定める。親の検索や `git status` の結果だけでコードや変更がないと判断しない。
 
-入口と知識文書は Git 管理し、ネイティブ環境・DevContainer・別開発者・feature 作業コピーへ同じ仕組みを届ける。AnimatedJava の master / dist など、開発で使うブランチにも入口を維持する。Git のブランチ変更で入口が消える状態はセットアップの検証で検出する。Agent の個人メモリだけには依存しない。
+共通規約とコード固有の知識はそれぞれのrepoでGit管理し、並列担当にはDevSpaceの規約と対象ブランチのナレッジを渡す。未コミット文書はworktreeへ自動で引き継がれないため、必要な本文が利用できることを確認する。Asset-AnimatedJava自体の体系的な知識整理は今回の対象外。
 
 ### 毎回読む内容と、変更対象に応じて読む内容
 
-常に必要な規約は短く保って `AGENTS.md` の本文に置く。リンク集だけにせず、生成物の扱い、API・一時状態に関する基本ルール、登録漏れの防止、既存の検証方法などを直接含める。Codex 側で Markdown リンク先まで自動展開されるとは仮定しない。
+常に必要な共通規約は短く保ってDevSpaceの `AGENTS.md` の本文に置く。リンク集だけにせず、生成物の扱い、API・一時状態に関する基本ルール、登録漏れの防止、既存の検証方法などを直接含める。Codex 側で Markdown リンク先まで自動展開されるとは仮定しない。
 
-詳細文書には「神器を追加する」「Mob の挙動を変更する」「公開 API を変更する」などの手順、理由、実例へのリンクを置く。各入口の対応表で、変更対象のパス・作業内容ごとに必読文書を明示する。たとえば神器の変更では神器の登録・イベント手順と使用する API の契約、Mob と AJ の連携変更では Mob のライフサイクルとアニメーション連携の規約を読む。
+詳細文書には「神器を追加する」「Mob の挙動を変更する」「公開 API を変更する」などの手順、理由、実例へのリンクを置く。DevSpaceの指示と各repoのナレッジREADMEで、変更対象のパス・作業内容ごとに必読文書を明示する。たとえば神器の変更では神器の登録・イベント手順と使用する API の契約、Mob と AJ の連携変更では Mob のライフサイクルとアニメーション連携の規約を読む。
 
 入口に定める作業手順は次の通り。
 
-1. 新しい開発タスクの開始時に、対象リポジトリの入口と知識の案内を確認する。
+1. DevSpaceの共通規約から対象repoを選び、その作業コピーのナレッジREADMEを確認する。
 2. 編集前に、対応表で指定された文書と関係する API の契約を読む。未読の場合は、先にその確認を行う。
 3. 対象領域が広がったとき、ブランチが変わったとき、長い中断・コンテキスト圧縮後の再開で情報が不足するときは、対象の知識を再確認する。
 4. 完了前に、読んだ規約と実際の変更を照合し、今回得た再利用可能な知識を更新する。
@@ -338,9 +337,9 @@ DevSpace だけに入口を置くと、各 repo を Git ルートとして直接
 
 ### 蓄積と確認
 
-レビューで判明した規約は、理由・失敗例・正しい実例・適用範囲をコード変更と一緒に記録する。常に適用する規約なら `AGENTS.md`、領域限定なら詳細文書と必読対応表を更新する。仮説は確定規約と区別し、廃止された知識も変更時に整理する。
+レビューで判明した知見は理由・実例・適用範囲を確認し、コード固有の契約は対象repoでコードと一緒に記録する。共通知識は統合担当へ引き渡し、[共通知識の逐次反映](knowledge-maintenance.md#共通知識の逐次反映) に従ってDevSpaceの既存文書へ統合する。仮説は確定規約と区別し、廃止された知識も変更時に整理する。
 
-標準指示ファイルの読み込みは、知識をコンテキストへ渡す仕組みであり、LLM がすべての指示を必ず守ることを強制するものではない。機械判定できる規約は既存 DHP / linter 等でも検査する。実装時は新しいセッションを DevSpace・各 repo・feature 作業コピーから開始し、入口が読み込まれ、対象の必読文書を編集前に参照できることを確認する。文書の存在だけで仕組みが完成したとはしない。
+標準指示ファイルの読み込みは、知識をコンテキストへ渡す仕組みであり、LLM がすべての指示を必ず守ることを強制するものではない。機械判定できる規約は既存 DHP / linter 等でも検査する。読込の検証は通常のDevSpace開始と、共通規約を引き渡したworktree担当を対象とする。子repoから直接開始した場合はDevSpaceへの案内が伝わることを確認する。文書の存在だけで仕組みが完成したとはしない。
 
 今回の代表例から、最初に文書化する価値がある内容は以下。
 
