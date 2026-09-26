@@ -1,5 +1,18 @@
 {
+  "terminal.integrated.cwd": "${workspaceFolder}",
+  "datapack.env.detectionDepth": 0,
+  "datapack.env.exclude": ["**"],
   "files.watcherExclude": {
-    "**/target/**": true
+    "**/target/**": true,
+    "**/.runtime/**": true,
+    "**/.cache/**": true,
+    "**/.worktrees/**": true,
+    "**/Asset-AnimatedJava/**": true
+  },
+  "search.exclude": {
+    "**/.runtime/**": true,
+    "**/.cache/**": true,
+    "**/.worktrees/**": true,
+    "**/Asset-AnimatedJava/**": true
   }
 }

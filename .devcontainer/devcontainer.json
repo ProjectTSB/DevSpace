@@ -2,7 +2,7 @@
   "name": "DevSpace development container",
   "dockerComposeFile": "compose.yaml",
   "service": "devspace",
-  "workspaceFolder": "/workspaces/DevSpace/Asset",
+  "workspaceFolder": "/workspaces/DevSpace",
   "shutdownAction": "none",
   "features": {
     "ghcr.io/devcontainers/features/node:2": {}
