@@ -52,6 +52,7 @@ Mob／Object／Effect の変更では、Asset 側の [型・インスタンス�
 | 内容 | 保存先・扱い |
 | --- | --- |
 | 共通の開発規約・AIへの参照指示 | DevSpaceの `AGENTS.md`。子repoへ複製せず、由来となった会話や修正履歴は載せない |
+| Issue・PR本文の目的・記載内容・確認観点 | DevSpaceの [Issue・PR本文の書き方](issue-pr-descriptions.md)。作成・更新時に参照し、子repoへ複製しない |
 | 両repoに適用できるコマンドの意味・数値・実行文脈のイディオム | DevSpaceの [共通イディオム](mcfunction-idioms.md)。子repoにはAPI固有の契約と利用例を残す |
 | 知識の採用・配置・更新手順 | DevSpaceのこの文書 |
 | 環境操作・共通検証手順・環境の設計理由 | DevSpaceの `README.md`、`docs/runtime-verification.md`、`docs/development-environment-design.md` の該当節 |

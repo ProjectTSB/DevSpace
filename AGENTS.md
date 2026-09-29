@@ -31,6 +31,10 @@ DevSpace は開発環境のリポジトリです。コードは次の独立し�
 - 子 repo のナレッジを共有するには、その repo 側の変更として扱う。親 DevSpace のコミットだけでは子 repo の変更は保存されない。
 - 作業開始時に対象repoの実パス・ブランチ・未コミット差分を確認し、完了時も変更したrepoごとに差分を確認する。DevSpaceの採用済み共通知識は、下記の統合担当が作業用ブランチを作らず `main` へ逐次commit・pushする運用とする。この範囲では個別の公開依頼を待たない。子repoのcommit・push、DevSpaceのスクリプト・環境設定の公開権限へは広げない。
 
+## Issue・PRの作成と更新
+
+Issue・PRの作成・本文更新では、[Issue・PR本文の書き方](docs/issue-pr-descriptions.md) を読んでから記述する。DevSpace・Asset・TheSkyBlessingに共通して適用し、会話を知らない読者が再現・対応・レビューを判断できる内容にする。
+
 ## 並列作業の引き渡しと統合
 
 - 並列作業では担当ごとに作業コピーを分け、DevSpace側が担当範囲、共通ID・alias・tagの変更責任、統合先を決める。個別担当にはDevSpaceの場所と環境規約、対象worktree、依存repoの参照先、必読文書を渡す。親の指示や未コミット文書が新しいセッション・worktreeへ自動で渡るとは扱わない。
