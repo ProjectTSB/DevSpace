@@ -5,7 +5,8 @@
   "workspaceFolder": "/workspaces/DevSpace",
   "shutdownAction": "none",
   "features": {
-    "ghcr.io/devcontainers/features/node:2": {}
+    "ghcr.io/devcontainers/features/node:2": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {}
   },
   "forwardPorts": [25565],
   "portsAttributes": {
@@ -36,6 +37,7 @@
   "mounts": [
     "source=claudeconfig-${devcontainerId},target=/home/vscode/.claude,type=volume",
     "source=codexconfig-${devcontainerId},target=/home/vscode/.codex,type=volume",
+    "source=ghconfig-${devcontainerId},target=/home/vscode/.config/gh,type=volume",
     "source=commandhistory-${devcontainerId},target=/commandhistory,type=volume"
   ],
   "remoteUser": "vscode",

@@ -27,6 +27,8 @@ RUN curl -fsSL https://chatgpt.com/codex/install.sh \
 RUN mkdir /home/$USERNAME/.claude && chown -R $USERNAME /home/$USERNAME/.claude
 # Used to store Codex configuration files
 RUN mkdir /home/$USERNAME/.codex && chown -R $USERNAME /home/$USERNAME/.codex
+# Initialize the GitHub CLI volume with a private, user-writable directory.
+RUN install -d -m 0700 -o $USERNAME -g $USERNAME /home/$USERNAME/.config/gh
 
 # Alias to run Claude with dangerously-skip-permissions flag
 RUN echo "alias claude='claude --dangerously-skip-permissions'" >> /etc/bash.bashrc

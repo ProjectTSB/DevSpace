@@ -34,6 +34,21 @@ sh scripts/setup.sh "/path/to/My World"
 
 DevContainer 用のマウント設定も setup が自動生成します。ワールドの場所を変更したら、コンテナを再作成してください。コンテナ内からのワールド指定は受け付けません。
 
+### GitHub CLI と認証の保存
+
+DevContainer は GitHub CLI (`gh`) を標準でインストールします。初回はコンテナ内で次を実行します。
+
+```sh
+gh auth login --web --git-protocol https --insecure-storage
+gh auth status
+```
+
+設定と認証情報は専用の名前付きボリュームに保存され、同じ DevContainer の rebuild 後も再利用します。`--insecure-storage` は、トークンを OS の credential store ではなく、このボリューム内のファイルへ平文で保存する指定です。[GitHub CLI の認証仕様](https://cli.github.com/manual/gh_auth_login)
+
+ボリュームを削除した場合や、DevSpace の配置変更などで `devcontainerId` が変わった場合は再ログインしてください。環境変数 `GH_TOKEN` 等で渡す認証情報は、この仕組みでは保存しません。
+
+### 詳細設定
+
 メモリ量などの詳細設定が必要な場合は、`devspace.local.conf.example` を参考に `devspace.local.conf` を編集できます。すでに保存された設定を上書きしないようにしてください。
 
 設定ファイルはシェルとして実行せず、1行1項目の `key=value` です。利用できるキーは `WORLD_PATH`、`THE_SKY_BLESSING_PATH`、`ASSET_PATH`、`ANIMATED_JAVA_PATH`、`RESOURCEPACK_URI`、`JAVA_BIN`、`JAVA_XMS`、`JAVA_XMX`、`SERVER_PORT`、`ACCEPT_EULA` です。EULA に同意した後、`ACCEPT_EULA=true` を設定するか、runtime の `eula.txt` に `eula=true` を置きます。

@@ -12,6 +12,12 @@ setupテストとruntimeの13テストは成功した。
 
 初期フォルダー変更後のコンテナ再作成、DHP 3.4.19での索引除外・表示・補完、新しいAIセッションでの規約参照は今回未確認。下表のAsset単独ウィンドウの検証は以前の条件の記録である。既存コンテナでは `code -n /workspaces/DevSpace` から新しいAIセッションを開始できる。
 
+## 2026-09-26: GitHub CLI の標準導入と認証保存
+
+GitHub CLI Feature と専用の設定ボリュームを追加し、Dev Containers CLI で lockfile を更新した。既存 Node Feature の解決先は変更していない。JSON と Feature の lockfile の整合、`git diff --check`、setup テスト、runtime の13テストが成功した。初回認証の手順は [README](../README.md#github-cli-と認証の保存) を参照。
+
+このセッションでは Docker CLI・socket を利用できないため、新構成のビルド、初回ボリュームの所有権、rebuild を挟んだ認証再利用は未検証。受入確認は、新構成で `gh --version` と `test -w "$GH_CONFIG_DIR"` を実行し、初回ログインした後に、同じ DevContainer を再度 rebuild して `gh auth status` が成功すること。
+
 ## 確認できたこと
 
 | 対象 | 結果・根拠 |

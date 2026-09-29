@@ -14,4 +14,5 @@ services:
       DEVSPACE_CONTAINER: "1"
       DEVSPACE_WORLD_CONFIG: "${TSB_WORLD_CONFIG:-}"
       CLAUDE_CONFIG_DIR: /home/vscode/.claude
+      GH_CONFIG_DIR: /home/vscode/.config/gh
     command: sleep infinity
