@@ -193,7 +193,9 @@ VS Code では既存の「Open SkyBlock Server」に相当する起動 task か�
 
 コード開発の取得・更新に必要なのは Git、サーバーを動かす場合は対応する Java。環境の補助処理専用のランタイムは必須にしない。エディタ、Agent、Docker は利用者の選択とする。DevContainer を選ぶ場合は必要な道具をイメージ側に用意する。ネイティブ利用でも、コンテナ内だけにあるコマンドへ依存しない。
 
-Windows の Git Bash と macOS には、任意の導入入口として `scripts/setup-native.sh` を用意する。Git と VS Code 本体は導入済みを前提にし、ツール導入には winget / Homebrew を使う。通常の `setup.sh` と `server.sh` にはパッケージ管理の依存や対話を加えない。対話セットアップは選ばれたツールだけを導入し、リポジトリ取得・ワールド設定は既存の `setup.sh` に委ねる。
+Windows の Git Bash と macOS には、任意の導入入口として `scripts/setup-native.sh` を用意する。Git と VS Code 本体は導入済みを前提にし、ツール導入には winget / Homebrew を使う。ただし Windows の Codex は、[公式の Windows 向け手順](https://learn.chatgpt.com/docs/codex/cli)に従って PowerShell インストーラーを使う。通常の `setup.sh` と `server.sh` にはパッケージ管理の依存や対話を加えない。対話セットアップは選ばれたツールだけを導入し、リポジトリ取得・ワールド設定は既存の `setup.sh` に委ねる。
+
+winget の導入成功や alias 登録の表示だけでは、Git Bash から `codex` を実行できるとは限らない。長いアーキテクチャ付きの名前だけが使える場合も準備完了にはせず、公式インストーラーによる導入を案内する。公式インストーラーが配置とユーザー PATH の登録を担当し、DevSpace 独自の alias やラッパーは作らない。既存の winget 版は自動削除しない。確認範囲と不具合の報告は[検証記録](rebuild-verification.md#2026-10-03-windows-の-codex-導入方法を修正)を参照する。
 
 ツールの準備完了はパッケージ管理コマンドの成功だけで判断せず、実行できることと必要な版を確認する。Windows では導入後の PATH を現在の処理にも追加するが、古い実行ファイルが優先される場合や、別プロセスの PATH 更新には利用者の対応が必要。シェル設定と既存の `JAVA_BIN` は書き換えず、更新や設定修正を案内する。DHP の指定版への変更も対話で選ぶ。実際のインストーラーと各 OS での動作は、コマンドを模擬した検証とは区別する。
 

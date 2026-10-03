@@ -77,7 +77,7 @@ native_package() {
     python) native_label='Python 3 / lint などの補助処理'; native_brew=python; native_winget=Python.Python.3.13;;
     jq) native_label='jq / JSON の加工'; native_brew=jq; native_winget=jqlang.jq;;
     rg) native_label='ripgrep / コード検索'; native_brew=ripgrep; native_winget=BurntSushi.ripgrep.MSVC;;
-    codex) native_label='Codex CLI / AI 開発'; native_brew=codex; native_kind=cask; native_winget=OpenAI.Codex;;
+    codex) native_label='Codex CLI / AI 開発'; native_brew=codex; native_kind=cask; native_winget=;;
     claude) native_label='Claude Code CLI / AI 開発'; native_brew=claude-code; native_kind=cask; native_winget=Anthropic.ClaudeCode;;
     *) return 1;;
   esac
@@ -91,8 +91,36 @@ native_brew_bootstrap() (
   /bin/bash "$native_tmp/install.sh"
 )
 
+# Use the Windows installer documented by OpenAI. WinGet's portable alias may
+# be absent even when its architecture-qualified Codex executable is usable.
+native_codex_windows_install() (
+  native_tmp=$(mktemp -d) || return 1
+  trap 'rm -rf "$native_tmp"' 0
+  trap 'exit 130' 1 2 3 15
+  curl -fSL https://chatgpt.com/codex/install.ps1 -o "$native_tmp/install.ps1" || return 1
+  native_windows_script=$(cygpath -w "$native_tmp/install.ps1") || return 1
+  MSYS2_ARG_CONV_EXCL='*' powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$native_windows_script"
+)
+
+native_codex_legacy_command() {
+  for native_legacy in codex-x86_64-pc-windows-msvc codex-aarch64-pc-windows-msvc; do
+    if native_probe "$native_legacy"; then
+      printf '%s\n' "$native_legacy"
+      return 0
+    fi
+  done
+  return 1
+}
+
 native_manager() {
   if [ "$native_os" = windows ]; then
+    if [ "$native_tool" = codex ]; then
+      command -v powershell.exe >/dev/null 2>&1 || {
+        native_say 'Codex の公式インストーラーには Windows PowerShell が必要です。' >&2
+        return 1
+      }
+      return 0
+    fi
     if ! winget --version >/dev/null 2>&1; then
       native_say 'winget が使えません。Microsoft の「アプリ インストーラー」を導入・更新して再実行してください。' >&2
       native_say 'https://learn.microsoft.com/windows/package-manager/winget/' >&2
@@ -111,6 +139,10 @@ native_manager() {
 
 native_install() {
   if [ "$native_os" = windows ]; then
+    if [ "$native_tool" = codex ]; then
+      native_codex_windows_install
+      return
+    fi
     # Keep source/package agreement prompts in winget's own UI.
     winget install --id "$native_winget" --exact --source winget --no-upgrade
   else
@@ -131,13 +163,26 @@ native_tools() {
       continue
     fi
     native_say "未準備    $native_label"
+    if [ "$native_os" = windows ] && [ "$native_tool" = codex ]; then
+      if native_legacy_command=$(native_codex_legacy_command); then
+        native_say "$native_legacy_command は実行できますが、codex コマンドは使えません。"
+        native_say 'winget 版で短いコマンド名が登録されない場合があります。公式インストーラーで導入できます。'
+        native_say '既存の winget 版は自動削除しません。公式版の動作確認後に winget uninstall --id OpenAI.Codex --exact --source winget で削除できます。'
+      fi
+    fi
     [ "$native_mode" != check ] || continue
     if [ "$native_tool" = java ] && [ -n "${JAVA_BIN:-}" ]; then
       native_say "JAVA_BIN=$JAVA_BIN が Java 17 以上を実行できません。ローカル設定を確認してください。"
       continue
     fi
     if [ "$native_os" = windows ]; then
-      native_say "実行予定  winget install --id $native_winget --exact --source winget --no-upgrade"
+      if [ "$native_tool" = codex ]; then
+        native_say '取得元  https://chatgpt.com/codex/install.ps1'
+        native_say '実行予定  ダウンロードした公式スクリプトを Windows PowerShell で実行します。'
+        native_say '公式インストーラーがユーザー領域へ Codex を配置し、PATH を登録します。'
+      else
+        native_say "実行予定  winget install --id $native_winget --exact --source winget --no-upgrade"
+      fi
     else
       native_say "実行予定  brew install --$native_kind $native_brew"
     fi
@@ -146,6 +191,7 @@ native_tools() {
       native_refresh_path
       if native_probe "$native_tool"; then
         native_say "利用確認済み  $native_tool"
+        native_say '導入したコマンドを使う前に、VS Code と端末を開き直してください。'
       else
         native_say "要確認  $native_tool はまだ実行できません。VS Code と端末を開き直し、--check で確認してください。"
         native_failed=1
@@ -248,7 +294,11 @@ native_main() {
         gh auth login --web --git-protocol https || native_failed=1
       fi
     fi
-    native_say 'AI CLI の認証は DevSpace で codex または claude を起動して行います。'
+    for native_ai in codex claude; do
+      if native_probe "$native_ai"; then
+        native_say "$native_ai の認証は、端末を開き直して DevSpace で $native_ai を起動して行います。"
+      fi
+    done
     native_say 'サーバーは Minecraft EULA に同意後、sh scripts/server.sh で起動します。'
   fi
   if ! native_probe java; then

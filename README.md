@@ -55,15 +55,19 @@ sh scripts/setup-native.sh
 | Codex CLI、Claude Code CLI | AI 開発。使うものだけ選びます。 |
 | VS Code 拡張機能 | DevContainer と同じ6候補を個別に選択。DHP は3.4.19を指定します。 |
 
-Windows の導入には [winget](https://learn.microsoft.com/windows/package-manager/winget/)、macOS には [Homebrew](https://docs.brew.sh/Installation) を使います。winget がなければ「アプリ インストーラー」の導入・更新を案内します。Homebrew がない場合は、導入するか別途確認します。管理者認証や配布元の同意画面が出た場合は、内容を確認して進めてください。macOS の Node.js は Homebrew の `node`、Windows は `OpenJS.NodeJS.LTS` を導入します。
+Windows の Codex は、[公式の Windows 向け手順](https://learn.chatgpt.com/docs/codex/cli)に従い、`https://chatgpt.com/codex/install.ps1` を取得して Windows PowerShell で実行します。公式インストーラーがユーザー領域へ配置し、PATH を登録します。他の Windows 用ツールには [winget](https://learn.microsoft.com/windows/package-manager/winget/)、macOS には [Homebrew](https://docs.brew.sh/Installation) を使います。
 
-導入後はツールを再確認します。Windows の新しい PATH は実行中のセットアップにも読み込みますが、既存の VS Code や端末には反映されません。まだ実行できない場合は両方を開き直し、次で確認してください。古い版が PATH の先頭にある場合は PATH を直すか、Java なら `JAVA_BIN` で使用する実行ファイルを指定します。このスクリプトは対象ツールの更新を実行しません。依存パッケージの導入・更新は各パッケージ管理ツールに従います。
+winget がなければ「アプリ インストーラー」の導入・更新を案内します。Homebrew がない場合は、導入するか別途確認します。管理者認証や配布元の同意画面が出た場合は、内容を確認して進めてください。macOS の Node.js は Homebrew の `node`、Windows は `OpenJS.NodeJS.LTS` を導入します。
+
+導入後はツールを再確認します。Windows の新しい PATH は実行中のセットアップにも読み込みますが、既存の VS Code や端末には反映されません。導入したコマンドを使う前に両方を開き直し、次で確認してください。古い版が PATH の先頭にある場合は PATH を直すか、Java なら `JAVA_BIN` で使用する実行ファイルを指定します。利用確認済みのツールは再導入しません。依存パッケージの導入・更新は各インストーラーに従います。
 
 ```sh
 sh scripts/setup-native.sh --check
 ```
 
 `--check` はインストール・ログイン・ワールド設定を行いません。Java が未準備なら終了コード1、任意ツールや拡張機能の不足だけなら0を返します。通常実行では、選んだ項目の導入・確認に失敗した場合も1を返します。再実行すると、その時点の導入状況から続けられます。
+
+Windows で `codex-x86_64-pc-windows-msvc` または `codex-aarch64-pc-windows-msvc` だけが使える場合は、短い `codex` コマンドが未準備であることを表示します。通常実行で Codex の導入を選ぶと、公式インストーラーを実行できます。既存の winget 版は自動削除しません。公式版の動作確認後、不要なら `winget uninstall --id OpenAI.Codex --exact --source winget` で削除してください。
 
 VS Code の `code` コマンドが使えない場合、拡張機能の導入はスキップします。macOS はコマンドパレットの `Shell Command: Install 'code' command in PATH`、Windows は VS Code の `bin` フォルダーを PATH に追加する方法で設定してください。[VS Code CLI の手順](https://code.visualstudio.com/docs/configure/command-line#_launching-from-command-line)を参照します。DHP が別の版なら、3.4.19へ変更するか確認します。
 

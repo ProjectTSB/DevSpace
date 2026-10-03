@@ -70,6 +70,18 @@ Linux 上で `sh tests/setup-native.sh` を実行し、OS と外部コマンド�
 
 Windows / macOS の実機でのインストール、管理者認証、実際の PATH 反映、Homebrew の初回導入、ブラウザーでの認証、拡張機能の動作は未検証。受入確認では、各 OS の通常ユーザーで必要な項目を導入し、VS Code と端末を開き直して `--check` の結果を確認する。DHP の版を確認後に再実行し、既存ツールが再導入されないことと、ワールド指定が既存の設定へ保存されることを照合する。機能検証 runner の対応環境は引き続き Linux / DevContainer。
 
+## 2026-10-03: Windows の Codex 導入方法を修正
+
+利用者から、VS Code 内の Git Bash で winget による導入後、`winget list` には Codex があるのに `command -v codex` が空になると報告された。外部の Git Bash でも同じだったが、`codex-x86_64-pc-windows-msvc --version` は動作した。実行ファイルは存在し、短いコマンド名からの起動に問題がある。利用者の環境で alias 登録が失敗した内部要因までは確認していない。
+
+Windows の Codex 導入を、[公式 CLI 手順](https://learn.chatgpt.com/docs/codex/cli)に記載された PowerShell インストーラーへ変更した。同手順には npm も掲載されているが winget は載っていない。[WinGet の Codex 0.160.0 配布定義](https://github.com/microsoft/winget-pkgs/blob/master/manifests/o/OpenAI/Codex/0.160.0/OpenAI.Codex.installer.yaml)には portable alias の指定があり、[Codex 側の不具合報告](https://github.com/openai/codex/issues/38975)にも長い実行ファイル名だけが使える事例がある。これは導入方法を見直す根拠であり、利用者の版や内部要因を特定したものではない。
+
+Linux 上の模擬テストで、x64 / ARM64 の長いコマンド名だけが使える状態の検出、導入の辞退、winget がなくても公式インストーラーを選べること、空白・日本語を含む一時パスの受け渡しと削除を確認した。取得失敗、インストーラー失敗、導入後も実行できない場合は未完了になり、使えない Codex の認証は案内しない。導入成功時も VS Code と端末の再起動を案内し、再実行では利用可能な Codex を再導入しない。
+
+変更後の `sh tests/setup-native.sh`、`sh tests/setup.sh`、`sh tests/runtime.sh` の13項目、シェル構文検査、`git diff --check` が成功した。
+
+Windows 実機での公式インストーラー実行と PATH 反映は未検証。この Linux 環境から公式の配布 URL を取得すると HTTP 403 になったため、[公開ソース](https://github.com/openai/codex/blob/main/scripts/install/install.ps1)を読んで配置と PATH 登録を確認した。受入確認では Windows の通常ユーザーで導入し、VS Code と端末を開き直して `codex --version` と `sh scripts/setup-native.sh --check` を実行する。既存の winget 版は自動削除せず、公式版の動作確認後に利用者が削除を判断する。
+
 ## 確認できたこと
 
 | 対象 | 結果・根拠 |

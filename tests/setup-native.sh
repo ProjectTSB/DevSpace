@@ -25,10 +25,18 @@ case $tool in
     printf '%s\n' "curl $*" >> "$NATIVE_TEST_LOG"
     [ "${NATIVE_TEST_DOWNLOAD:-ok}" = ok ] || exit 22
     [ "$1" = -fSL ] && [ "$3" = -o ] || exit 99
-    cat > "$4" <<'BOOTSTRAP'
+    if [ "$2" = https://chatgpt.com/codex/install.ps1 ]; then
+      cat > "$4" <<'CODEX_INSTALLER'
+printf 'codex-installer\n' >> "$NATIVE_TEST_LOG"
+[ "${NATIVE_TEST_FAIL:-}" != codex ] || exit 42
+[ "${NATIVE_TEST_INVISIBLE:-}" = codex ] || : > "$NATIVE_TEST_STATE/codex"
+CODEX_INSTALLER
+    else
+      cat > "$4" <<'BOOTSTRAP'
 printf 'bootstrap\n' >> "$NATIVE_TEST_LOG"
 rm "$NATIVE_TEST_STATE/no-manager"
 BOOTSTRAP
+    fi
     ;;
   java)
     [ -f "$NATIVE_TEST_STATE/java" ] || exit 1
@@ -43,6 +51,8 @@ BOOTSTRAP
       [ "$2" != status ] || exit 1
     fi;;
   jq|rg|codex|claude) [ -f "$NATIVE_TEST_STATE/$tool" ] || exit 1;;
+  codex-x86_64-pc-windows-msvc|codex-aarch64-pc-windows-msvc)
+    [ -f "$NATIVE_TEST_STATE/$tool" ] || exit 1;;
   brew|winget)
     [ ! -f "$NATIVE_TEST_STATE/no-manager" ] || exit 1
     case $1 in
@@ -79,13 +89,28 @@ BOOTSTRAP
         case $2 in *@*) printf '%s\n' "$2";; *) printf '%s@1.0.0\n' "$2";; esac >> "$NATIVE_TEST_STATE/extensions";;
       *) exit 99;;
     esac;;
-  powershell.exe) printf '%s\r\n' 'C:\New Tools;C:\日本語' 'C:\Users\tester\bin';;
-  cygpath) printf '%s\n' "$*" >> "$NATIVE_TEST_LOG"; printf '%s\n' '/nonexistent/new tools:/nonexistent/日本語';;
+  powershell.exe)
+    if [ "$2" = -ExecutionPolicy ]; then
+      [ "$#" -eq 5 ] && [ "$1" = -NoProfile ] && [ "$3" = Bypass ] && [ "$4" = -File ] || exit 99
+      [ "$MSYS2_ARG_CONV_EXCL" = '*' ] || exit 99
+      printf 'powershell-installer <%s>\n' "$5" >> "$NATIVE_TEST_LOG"
+      # Execute the fixture written by mock curl; no PowerShell installer runs.
+      sh "$5"
+    else
+      printf '%s\r\n' 'C:\New Tools;C:\日本語' 'C:\Users\tester\bin'
+    fi;;
+  cygpath)
+    if [ "$1" = -w ]; then
+      printf '%s\n' "$2"
+    else
+      printf '%s\n' "$*" >> "$NATIVE_TEST_LOG"
+      printf '%s\n' '/nonexistent/new tools:/nonexistent/日本語'
+    fi;;
   *) exit 99;;
 esac
 MOCK
 chmod +x "$tmp/bin/mock"
-for tool in uname git curl java node npm python python3 gh jq rg codex claude brew winget code powershell.exe cygpath; do
+for tool in uname git curl java node npm python python3 gh jq rg codex claude brew winget code powershell.exe cygpath codex-x86_64-pc-windows-msvc codex-aarch64-pc-windows-msvc; do
   ln -s mock "$tmp/bin/$tool"
 done
 cat > "$fixture/scripts/setup.sh" <<'MOCK'
@@ -148,13 +173,56 @@ for os in Darwin MINGW64_NT-10.0; do
   NATIVE_TEST_OS=$os; export NATIVE_TEST_OS
   rm "$tmp/state/java" "$tmp/state/gh" "$tmp/state/node" "$tmp/state/python" "$tmp/state/jq" "$tmp/state/rg" "$tmp/state/codex" "$tmp/state/claude"
   printf 'y\ny\ny\ny\ny\ny\ny\ny\nn\nn\n' | run_wizard || { cat "$tmp/output"; fail "$os install"; }
-  [ "$(grep -c ' install ' "$NATIVE_TEST_LOG")" -eq 8 ] || fail 'wrong number of package installs'
   case $os in
-    Darwin) grep -Fx 'brew install --cask temurin@17' "$NATIVE_TEST_LOG" >/dev/null || fail 'brew Java';;
+    Darwin)
+       [ "$(grep -c ' install ' "$NATIVE_TEST_LOG")" -eq 8 ] || fail 'wrong number of brew installs'
+       grep -Fx 'brew install --cask temurin@17' "$NATIVE_TEST_LOG" >/dev/null || fail 'brew Java';;
     *) grep -Fx 'winget install --id EclipseAdoptium.Temurin.17.JDK --exact --source winget --no-upgrade' "$NATIVE_TEST_LOG" >/dev/null || fail 'winget Java'
-       grep -Fx -- '-u -p C:\New Tools;C:\日本語;C:\Users\tester\bin' "$NATIVE_TEST_LOG" >/dev/null || fail 'Windows PATH conversion';;
+       grep -Fx -- '-u -p C:\New Tools;C:\日本語;C:\Users\tester\bin' "$NATIVE_TEST_LOG" >/dev/null || fail 'Windows PATH conversion'
+       [ "$(grep -c ' install ' "$NATIVE_TEST_LOG")" -eq 7 ] || fail 'wrong number of winget installs'
+       grep -Fx codex-installer "$NATIVE_TEST_LOG" >/dev/null || fail 'Codex official installer not used'
+       if grep 'winget install --id OpenAI.Codex' "$NATIVE_TEST_LOG"; then fail 'Codex used winget'; fi;;
   esac
   grep -E 'visual-studio-code|Microsoft.VisualStudioCode|npm install|insecure-storage|accept-.*agreements' "$NATIVE_TEST_LOG" && fail 'unexpected installer or agreement flag'
+done
+
+# A long-name-only installation is diagnosed without treating it as usable codex.
+for legacy in codex-x86_64-pc-windows-msvc codex-aarch64-pc-windows-msvc; do
+  reset_fixture; rm "$tmp/state/codex"
+  NATIVE_TEST_OS=MINGW64_NT-10.0; export NATIVE_TEST_OS
+  : > "$tmp/state/$legacy"
+  : > "$tmp/state/no-manager"
+  run_wizard --check </dev/null || fail 'check legacy Codex'
+  grep "$legacy は実行できますが、codex コマンドは使えません" "$tmp/output" >/dev/null || fail 'legacy diagnosis missing'
+  if grep -E 'curl |codex-installer|powershell-installer' "$NATIVE_TEST_LOG"; then fail 'check mutated legacy installation'; fi
+  printf 'n\nn\nn\n' | run_wizard || fail 'decline Codex repair'
+  if grep 'codex の認証は' "$tmp/output"; then fail 'unavailable Codex advertised'; fi
+  if grep -E 'curl |codex-installer|powershell-installer' "$NATIVE_TEST_LOG"; then fail 'declined repair ran'; fi
+  # Windows Codex must not depend on winget, nor remove the existing installation.
+  mkdir -p "$tmp/日本語 temp"
+  printf 'y\nn\nn\n' | TMPDIR="$tmp/日本語 temp" run_wizard || { cat "$tmp/output"; fail 'repair legacy Codex'; }
+  [ -f "$tmp/state/$legacy" ] || fail 'legacy installation removed'
+  grep -Fx codex-installer "$NATIVE_TEST_LOG" >/dev/null || fail 'repair did not invoke official installer'
+  grep 'VS Code と端末を開き直してください' "$tmp/output" >/dev/null || fail 'success omitted restart guidance'
+  [ -z "$(ls -A "$tmp/日本語 temp")" ] || fail 'installer temporary directory remained'
+  : > "$NATIVE_TEST_LOG"
+  printf 'n\nn\n' | run_wizard || fail 'rerun after repair'
+  if grep -E 'curl |codex-installer|powershell-installer' "$NATIVE_TEST_LOG"; then fail 'working Codex reinstalled'; fi
+done
+
+for problem in download installer invisible; do
+  reset_fixture; rm "$tmp/state/codex"
+  NATIVE_TEST_OS=MINGW64_NT-10.0; export NATIVE_TEST_OS
+  case $problem in
+    download) export NATIVE_TEST_DOWNLOAD=fail;;
+    installer) export NATIVE_TEST_FAIL=codex;;
+    invisible) export NATIVE_TEST_INVISIBLE=codex;;
+  esac
+  printf 'y\nn\nn\n' | expect_failure run_wizard
+  if [ "$problem" = download ]; then
+    if grep 'powershell-installer' "$NATIVE_TEST_LOG"; then fail 'incomplete download was executed'; fi
+  fi
+  if grep 'codex の認証は' "$tmp/output"; then fail 'failed Codex advertised'; fi
 done
 
 # Failure and a successful installer with an unusable binary both remain incomplete.
