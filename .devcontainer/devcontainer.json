@@ -23,7 +23,7 @@
         "Anthropic.claude-code",
         "openai.chatgpt",
         "MinecraftCommands.syntax-mcfunction",
-        "SPGoding.datapack-language-server"
+        "SPGoding.datapack-language-server@3.4.19"
       ],
       "settings": {
         "files.eol": "\n",
@@ -38,6 +38,8 @@
     "source=claudeconfig-${devcontainerId},target=/home/vscode/.claude,type=volume",
     "source=codexconfig-${devcontainerId},target=/home/vscode/.codex,type=volume",
     "source=ghconfig-${devcontainerId},target=/home/vscode/.config/gh,type=volume",
+    "source=dhp-global-storage-${devcontainerId},target=/home/vscode/.vscode-server/data/User/globalStorage/spgoding.datapack-language-server,type=volume",
+    "source=vscode-workspace-storage-${devcontainerId},target=/home/vscode/.vscode-server/data/User/workspaceStorage,type=volume",
     "source=commandhistory-${devcontainerId},target=/commandhistory,type=volume"
   ],
   "remoteUser": "vscode",

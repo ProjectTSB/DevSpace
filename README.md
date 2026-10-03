@@ -47,6 +47,27 @@ gh auth status
 
 ボリュームを削除した場合や、DevSpace の配置変更などで `devcontainerId` が変わった場合は再ログインしてください。環境変数 `GH_TOKEN` 等で渡す認証情報は、この仕組みでは保存しません。
 
+### DHP のバージョン固定とキャッシュ保存
+
+DevContainer の Data-pack Helper Plus は、`.devcontainer/devcontainer.json` の `SPGoding.datapack-language-server@3.4.19` で固定します。版を更新するときはこの指定を変更し、索引除外設定との互換性も確認してください。特定バージョンのインストールは DHP の自動更新を抑止します。
+
+DHP 3.4.19 の保存先を、`devcontainerId` ごとの名前付きボリュームで永続化します。
+
+| 保存対象 | コンテナ内のパス |
+| --- | --- |
+| Minecraft の定義などの共通データと DHP プラグイン | `/home/vscode/.vscode-server/data/User/globalStorage/spgoding.datapack-language-server` |
+| ワークスペース別の解析キャッシュ | `/home/vscode/.vscode-server/data/User/workspaceStorage` 内の `<workspace-id>/spgoding.datapack-language-server/cache.json` |
+
+ワークスペースの ID は VS Code が管理するため、後者は `workspaceStorage` 全体を保存し、他の拡張機能のワークスペース状態も含みます。同じ DevContainer とワークスペースを開けば rebuild 後も再利用できます。ボリュームの削除や `devcontainerId` の変更時は再生成され、別の worktree は別の解析キャッシュになります。DHP 4.x の `~/.cache/spyglassmc-nodejs` は 3.4.19 の保存先ではありません。
+
+設定の反映には `Dev Containers: Rebuild Container` を実行します。初回は空のボリュームからキャッシュを生成し、以後の rebuild で保持します。変更前のコンテナにあるキャッシュは自動移行しません。既存コンテナの拡張機能だけを先に合わせる場合は、コンテナ内で次を実行し、`Developer: Reload Window` で読み直してください。
+
+```sh
+code --install-extension SPGoding.datapack-language-server@3.4.19 --force
+```
+
+保存先の根拠と rebuild 後の確認手順は [検証記録](docs/rebuild-verification.md#2026-10-01-dhp-3419-の固定とキャッシュ保存) を参照してください。
+
 ### 詳細設定
 
 メモリ量などの詳細設定が必要な場合は、`devspace.local.conf.example` を参考に `devspace.local.conf` を編集できます。すでに保存された設定を上書きしないようにしてください。

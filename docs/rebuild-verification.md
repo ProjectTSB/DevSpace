@@ -18,6 +18,20 @@ GitHub CLI Feature と専用の設定ボリュームを追加し、Dev Container
 
 このセッションでは Docker CLI・socket を利用できないため、新構成のビルド、初回ボリュームの所有権、rebuild を挟んだ認証再利用は未検証。受入確認は、新構成で `gh --version` と `test -w "$GH_CONFIG_DIR"` を実行し、初回ログインした後に、同じ DevContainer を再度 rebuild して `gh auth status` が成功すること。
 
+## 2026-10-01: DHP 3.4.19 の固定とキャッシュ保存
+
+DevContainer の拡張指定を `SPGoding.datapack-language-server@3.4.19` に固定し、DHP の共通保存先と VS Code の `workspaceStorage` に名前付きボリュームを設定した。Dockerfile で保存先と親ディレクトリを `vscode` 所有で作成する。対象範囲と初回適用手順は [README](../README.md#dhp-のバージョン固定とキャッシュ保存) を参照。
+
+保存先は Marketplace からインストールした 3.4.19 の `dist/extension.js` と `dist/server.js` で確認した。拡張は VS Code の `ExtensionContext.globalStoragePath` と `storagePath` をサーバーへ渡し、サーバーは前者に共通データと `plugins`、後者に `cache.json` を保存する。したがって DHP 4.x の `~/.cache/spyglassmc-nodejs` だけを保存しても、3.4.19 のキャッシュは保持できない。API 上の保存範囲は [VS Code ExtensionContext](https://code.visualstudio.com/api/references/vscode-api#ExtensionContext)、バージョン付き ID の形式は [VS Code の DevContainer schema](https://github.com/microsoft/vscode/blob/main/extensions/configuration-editing/schemas/devContainer.vscode.schema.json) を参照。
+
+現在のコンテナでは `code --install-extension SPGoding.datapack-language-server@3.4.19 --force` が成功し、インストール情報の `version: 3.4.19` と `metadata.pinned: true` を確認した。設定の JSON、公式 schema の拡張 ID 形式、マウント先と Dockerfile の作成先の一致、`git diff --check`、setup テスト、runtime の13テストが成功した。
+
+Docker CLI・socket がないため、新構成のビルド、マウント後の書込権限、rebuild を挟んだキャッシュ再利用は未検証。現在のウィンドウでの 3.4.19 の再読込と補完動作も未確認。受入確認は次の手順で行う。
+
+1. `Dev Containers: Rebuild Container` 後、拡張の表示が 3.4.19 であることと、上記2つの保存先に `vscode` で書き込めることを確認する。
+2. 対象repoを別ウィンドウで開いて mcfunction を表示し、DHP の出力の `globalStoragePath` と `cachePath` がボリューム配下であること、共通データと `cache.json` が生成されることを確認する。
+3. 保存されたファイルのパスとハッシュを記録し、同じ DevContainer を rebuild する。対象repoを開く前にファイルの保持を照合し、そのrepoを開いて DHP のキャッシュ読込と補完・診断を確認する。初回導入時は旧コンテナのキャッシュを引き継がず、生成後の次回 rebuild から保持する。
+
 ## 2026-10-03: AI CLI の開始位置の自動切替
 
 `scripts/ai-shell.bash` にBash関数を追加し、Dockerfileの既存aliasを、このファイルの読込へ置き換えた。現在のコンテナの `/etc/bash.bashrc` にも同じ読込行を反映した。利用方法と適用範囲は [READMEの起動手順](../README.md#起動) を参照。

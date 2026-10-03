@@ -30,5 +30,15 @@ RUN mkdir /home/$USERNAME/.codex && chown -R $USERNAME /home/$USERNAME/.codex
 # Initialize the GitHub CLI volume with a private, user-writable directory.
 RUN install -d -m 0700 -o $USERNAME -g $USERNAME /home/$USERNAME/.config/gh
 
+# DHP 3.x stores downloaded data globally and analysis caches per workspace.
+# Pre-create both volume targets so new volumes are writable by vscode.
+RUN install -d -m 0755 -o $USERNAME -g $USERNAME \
+    /home/$USERNAME/.vscode-server \
+    /home/$USERNAME/.vscode-server/data \
+    /home/$USERNAME/.vscode-server/data/User \
+    /home/$USERNAME/.vscode-server/data/User/globalStorage \
+    /home/$USERNAME/.vscode-server/data/User/globalStorage/spgoding.datapack-language-server \
+    /home/$USERNAME/.vscode-server/data/User/workspaceStorage
+
 # Load AI entrypoint functions from the mounted workspace in interactive Bash.
 RUN echo '[ ! -r /workspaces/DevSpace/scripts/ai-shell.bash ] || . /workspaces/DevSpace/scripts/ai-shell.bash' >> /etc/bash.bashrc
