@@ -68,6 +68,7 @@ Issue・PRの作成・本文更新では、[Issue・PR本文の書き方](docs/i
 
 ## 環境変更時の確認
 
+- READMEは現行構成の初回セットアップと通常利用を説明する。rebuild前の既存コンテナに関する暫定手順・移行説明・手動での先行反映は一切書かない。検証時の旧構成や暫定操作を記録する必要がある場合は、検証記録へ残す。
 - Minecraft 1.20.4 / Vanilla、基準 Java 17。通常利用は AJ `dist`。AJ `master` の pack 個数判定の制約は検証記録を参照する。
 - 起動は `sh scripts/server.sh`。既存 pack 内の通常編集は保存 → `/reload`。独立 pack の追加・削除や参照 repo の切替はサーバーを停止してから再起動する。
 - ワールド指定はホストで `sh scripts/setup.sh --container "ワールドのパス"`。設定は保存され、W1 マウントの変更にはコンテナの再作成が必要。ネイティブでは `--container` を省く。

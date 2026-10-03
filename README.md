@@ -60,12 +60,6 @@ DHP 3.4.19 の保存先を、`devcontainerId` ごとの名前付きボリュー�
 
 ワークスペースの ID は VS Code が管理するため、後者は `workspaceStorage` 全体を保存し、他の拡張機能のワークスペース状態も含みます。同じ DevContainer とワークスペースを開けば rebuild 後も再利用できます。ボリュームの削除や `devcontainerId` の変更時は再生成され、別の worktree は別の解析キャッシュになります。DHP 4.x の `~/.cache/spyglassmc-nodejs` は 3.4.19 の保存先ではありません。
 
-設定の反映には `Dev Containers: Rebuild Container` を実行します。初回は空のボリュームからキャッシュを生成し、以後の rebuild で保持します。変更前のコンテナにあるキャッシュは自動移行しません。既存コンテナの拡張機能だけを先に合わせる場合は、コンテナ内で次を実行し、`Developer: Reload Window` で読み直してください。
-
-```sh
-code --install-extension SPGoding.datapack-language-server@3.4.19 --force
-```
-
 保存先の根拠と rebuild 後の確認手順は [検証記録](docs/rebuild-verification.md#2026-10-01-dhp-3419-の固定とキャッシュ保存) を参照してください。
 
 ### 詳細設定
@@ -80,17 +74,11 @@ DevContainer は空の VS Code ウィンドウで `Dev Containers: Open Folder i
 
 DevSpaceのウィンドウで `Open SkyBlock Server` タスクを実行します。DevSpaceの端末からは `sh scripts/server.sh`、確認だけなら `sh scripts/server.sh --check`、pack の準備だけなら `sh scripts/server.sh --prepare` を使います。Windows の Git が標準場所以外にある場合は、タスクの `windows.command` を実際の `bash.exe` のパスへ変更してください。
 
-すでにAssetを開いているコンテナで拡張機能を使う場合は、端末から `code -n /workspaces/DevSpace` でDevSpaceを開き、そこで新しいAIセッションを始めてください。AIセッション開始後にシェルだけを `cd` しても、開始時の規約読込を切り替えたことにはしません。
+AIの拡張機能はDevSpaceのウィンドウで新しいセッションを開始します。AIセッション開始後にシェルだけを `cd` しても、開始時の規約読込を切り替えたことにはしません。
 
 DevContainer の対話 Bash では、`TheSkyBlessing`・`Asset` とそのサブディレクトリから `codex` / `claude` を実行すると、自動で DevSpace を開始位置にします。終了後の端末位置は変わりません。DevSpace直下の通常の2 repoだけが対象で、別repo・入れ子のrepo・並列担当のworktreeは元の位置で起動します。既存の承認省略オプションと渡した引数は維持しますが、相対パスの引数は移動後のDevSpaceが基準になるため、ファイル指定には絶対パスを使ってください。明示的な作業場所の指定や既存セッションの再開はCLI側の指定に従います。
 
-起動処理は `scripts/ai-shell.bash` にあります。コンテナの rebuild 後は新しい Bash で自動読込されます。既存の端末へすぐ反映する場合は次を実行します。
-
-```bash
-source /workspaces/DevSpace/scripts/ai-shell.bash
-```
-
-ネイティブの Bash では、この `source` 行のパスを実際のDevSpaceへ変更して `~/.bashrc` に追加できます。関数を読み込まないシェル、非対話実行、VS Code拡張機能は自動移動の対象外なので、DevSpaceから開始します。
+起動処理は `scripts/ai-shell.bash` にあり、DevContainerの対話Bashで自動読込されます。ネイティブの Bash で同じ動作を使う場合は、実際のDevSpaceの `scripts/ai-shell.bash` を絶対パスで `source` する設定を `~/.bashrc` に追加します。関数を読み込まないシェル、非対話実行、VS Code拡張機能は自動移動の対象外なので、DevSpaceから開始します。
 
 ### AIへの依頼とコード補完
 

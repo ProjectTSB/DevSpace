@@ -299,7 +299,7 @@ Claude Code では `CLAUDE.md` が読み込まれるため、各リポジトリ�
 
 共通規約とAIへの参照・更新指示はDevSpaceに集約する。子repoのAGENTS.mdは、ここをpwdにした通常のAI開発を推奨せずDevSpaceへ案内するためだけに置く。コード固有の知識は、コードと同じブランチで管理するため子repoに残す。
 
-対話BashのCLI起動は [ai-shell.bash](../scripts/ai-shell.bash) で包み、通常の2 repoからDevSpaceへ移動して開始する。Gitルートを照合して入れ子の別repoを除き、`.git` がファイルのlinked worktreeも除くことで、並列担当の作業場所を保持する。移動はサブシェル内に限定し、終了後も利用者が元のrepoで作業を続けられるようにする。対象範囲・相対パス引数・既存端末への反映は [READMEの起動手順](../README.md#起動) を参照。
+対話BashのCLI起動は [ai-shell.bash](../scripts/ai-shell.bash) で包み、通常の2 repoからDevSpaceへ移動して開始する。Gitルートを照合して入れ子の別repoを除き、`.git` がファイルのlinked worktreeも除くことで、並列担当の作業場所を保持する。移動はサブシェル内に限定し、終了後も利用者が元のrepoで作業を続けられるようにする。対象範囲・相対パス引数・通常の起動方法は [READMEの起動手順](../README.md#起動) を参照。
 
 ```text
 DevSpace/
