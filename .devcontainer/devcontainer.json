@@ -43,5 +43,5 @@
     "source=commandhistory-${devcontainerId},target=/commandhistory,type=volume"
   ],
   "remoteUser": "vscode",
-  "postCreateCommand": "curl -fsSL https://claude.ai/install.sh | bash && echo 'export PATH=\"$HOME/.local/bin:$PATH\"' >> ~/.bashrc"
+  "postCreateCommand": "mkdir -p \"$HOME/.codex/agent-data\" && curl -fsSL https://claude.ai/install.sh | bash && echo 'export PATH=\"$HOME/.local/bin:$PATH\"' >> ~/.bashrc"
 }

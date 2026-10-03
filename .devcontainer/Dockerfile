@@ -27,6 +27,9 @@ RUN curl -fsSL https://chatgpt.com/codex/install.sh \
 RUN mkdir /home/$USERNAME/.claude && chown -R $USERNAME /home/$USERNAME/.claude
 # Used to store Codex configuration files
 RUN mkdir /home/$USERNAME/.codex && chown -R $USERNAME /home/$USERNAME/.codex
+# Keep user skills and installer metadata in the existing persistent volume.
+RUN install -d -m 0755 -o $USERNAME -g $USERNAME /home/$USERNAME/.codex/agent-data \
+  && ln -s .codex/agent-data /home/$USERNAME/.agents
 # Initialize the GitHub CLI volume with a private, user-writable directory.
 RUN install -d -m 0700 -o $USERNAME -g $USERNAME /home/$USERNAME/.config/gh
 

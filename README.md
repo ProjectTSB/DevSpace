@@ -47,6 +47,30 @@ gh auth status
 
 ボリュームを削除した場合や、DevSpace の配置変更などで `devcontainerId` が変わった場合は再ログインしてください。環境変数 `GH_TOKEN` 等で渡す認証情報は、この仕組みでは保存しません。
 
+### 個人用のAI設定と任意スキル
+
+文体の好みや任意スキルは、各ツールのユーザー領域へ設定します。チームの開発規約は `AGENTS.md` で共有し、個人用スキルの導入は各自で選びます。個人用スキルを使う場合も、コミットのGitmojiなど成果物に指定された形式を維持してください。
+
+DevContainerは `~/.claude` と `~/.codex` を名前付きボリュームに保存します。Codexの個人スキル配置先 `~/.agents/skills` とインストーラーの管理情報も保存するため、`~/.agents` は `~/.codex/agent-data` へのリンクにしています。同じ `devcontainerId` のrebuildでは再利用できますが、ボリュームを削除した場合や別環境では再導入が必要です。共有する設定には保存先だけを定義し、個人が選んだスキル本体や認証情報は含めません。
+
+例えば、日本語の推敲用スキル [yomiyasu](https://github.com/nanaism/yomiyasu) を使う人は、コンテナ内の端末で次を実行します。ネイティブ環境でもNode.jsとnpmがあれば同じコマンドを使えます。
+
+```sh
+# 自分のClaude CodeとCodexへ導入
+npx skills add https://github.com/nanaism/yomiyasu/tree/main/skills/yomiyasu --global --agent claude-code codex
+
+# 個人用スキルの確認・更新・削除
+npx skills list --global
+npx skills update yomiyasu --global
+npx skills remove yomiyasu --global --agent claude-code codex
+```
+
+`--global` はその環境のユーザー領域への導入を指定します。省略するとプロジェクト内への導入になるため、個人用では必ず付けてください。上の例では同名スキルの重複読込を避けるため、配布repo内の `skills/yomiyasu` を指定しています。
+
+導入後はClaude Codeの `/` メニューやCodexの `/skills` からyomiyasuを選び、推敲する文章を渡します。プラグイン名を含む `yomiyasu:yomiyasu` として表示される場合があります。表示されない場合は新しいセッションを開始します。
+
+配置先と操作の仕様は [Codexのスキル](https://learn.chatgpt.com/docs/build-skills)、[Claude Codeのスキル](https://code.claude.com/docs/en/skills)、[skills CLI](https://github.com/vercel-labs/skills) を参照してください。別環境でも同じ構成を再現したい場合は、導入コマンドを個人のdotfiles repo等へ保存します。検証範囲は [検証記録](docs/rebuild-verification.md#2026-10-03-個人用aiスキルの保存) を参照してください。
+
 ### DHP のバージョン固定とキャッシュ保存
 
 DevContainer の Data-pack Helper Plus は、`.devcontainer/devcontainer.json` の `SPGoding.datapack-language-server@3.4.19` で固定します。版を更新するときはこの指定を変更し、索引除外設定との互換性も確認してください。特定バージョンのインストールは DHP の自動更新を抑止します。

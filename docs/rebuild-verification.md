@@ -40,6 +40,18 @@ Docker CLI・socket がないため、新構成のビルド、マウント後の
 
 現在のコンテナで新規の対話Bashを起動し、実際のAsset・TheSkyBlessingを開始位置として、PATH上の両CLIスタブがDevSpaceで呼ばれ、親シェルは元のrepoに留まることを確認した。AIの実セッションによる規約読取と、Dockerfile変更後のrebuildは未検証。rebuild後は新しいBashで `type codex claude` が関数を示すことと、両repoから開始した新規CLIセッションの作業位置を確認する。
 
+## 2026-10-03: 個人用AIスキルの保存
+
+Dockerfileで `~/.agents` を `~/.codex/agent-data` への相対リンクとして作成し、既存のCodex用ボリュームで個人スキルとインストーラーの管理情報を保存する構成にした。既存ボリュームには新しいディレクトリがない場合があるため、`postCreateCommand` でもリンク先を作成する。任意スキルの導入・更新・削除手順は [README](../README.md#個人用のai設定と任意スキル) に記載した。スキル本体をイメージへ組み込む処理は追加していない。
+
+現在のコンテナにも同じディレクトリとリンクを作成した。`findmnt` でリンク先が既存のCodex用ボリュームに含まれることを確認した。`skills` CLI 1.7.0でユーザー領域へ導入し、Claude Codeのスキルディレクトリから同じ実体へのリンクと、`~/.agents/.skill-lock.json` の取得元情報を確認した。個人の導入状態はGit管理外に置いている。
+
+最初のrepo直下からの導入では、配布物に同じスキルの入れ子があり、Codexの `skills/list` が `yomiyasu:yomiyasu` を2件返した。`yomiyasu` 1件を期待した確認は失敗した。配布repoの `skills/yomiyasu` を指定して再導入後、Codex CLI 0.157.1のapp-serverが `scope=user`、`enabled=true` の1件を返し、読込エラーがないことを確認した。導入例にもこのサブディレクトリ指定を使用する。
+
+設定JSON、`postCreateCommand` のシェル構文、`git diff --check`、setupテスト、runtimeの13テストが成功した。既存ボリュームにリンク先がない状況を一時ディレクトリで再現し、初期化後に書き込めることと、ホーム側のリンクを作り直してもデータを参照できることを確認した。これはファイルシステム上の模擬確認であり、コンテナrebuildの実測ではない。
+
+Docker CLI・socketがないため、新構成のビルドとrebuildを挟んだ保存は未検証。Claude Code 2.1.288については配置とリンク先の照合までで、新しい対話セッションからの呼出は未確認。受入確認は、同じDevContainerをrebuildして `readlink -f ~/.agents` と `npx skills list --global` を確認し、両ツールの新しいセッションでスキル一覧から選択して短文を推敲すること。実体と管理情報の保存確認はボリュームを維持した条件で行う。現在のCodex検出結果はGit管理外の `.runtime/verification/personal-skills/codex-discovery.json` に保存した。
+
 ## 確認できたこと
 
 | 対象 | 結果・根拠 |
