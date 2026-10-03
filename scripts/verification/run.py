@@ -49,6 +49,30 @@ def snapshot(repo):
             'status': git('status', '--porcelain').decode(), 'files': files}
 
 
+def code_files(state):
+    """Compare working contents; Git metadata and known prose are evidence only."""
+    def documentation(name):
+        return (name in ('README.md', 'AGENTS.md', 'CLAUDE.md')
+                or (name.startswith('docs/') and name.endswith('.md')))
+    return {name: value for name, value in state['files'].items()
+            if value != 'missing' and not documentation(name)}
+
+
+def check_repository_changes(repos, result):
+    result['repositoriesAfterRun'] = {
+        name: {'path': str(path), **snapshot(path)} for name, path in repos.items()}
+    changes = {}
+    for name in repos:
+        before = code_files(result['repositories'][name])
+        after = code_files(result['repositoriesAfterRun'][name])
+        changes[name] = sorted(path for path in before.keys() | after.keys()
+                               if before.get(path) != after.get(path))
+    result['changedCodeFiles'] = changes
+    result['codeUnchangedDuringRun'] = not any(changes.values())
+    if not result['codeUnchangedDuringRun']:
+        result['status'] = 'failed'
+
+
 def archive_changes(repo, destination):
     """Preserve changed and untracked contents, without changing the Git index."""
     names = set()
@@ -367,9 +391,7 @@ def main():
                 clients.kill(); clients.wait()
         if repos and 'repositories' in result:
             try:
-                result['codeUnchangedDuringRun'] = all(snapshot(p) == {k: v for k, v in result['repositories'][n].items() if k != 'path'} for n, p in repos.items())
-                if not result['codeUnchangedDuringRun']:
-                    result['status'] = 'failed'
+                check_repository_changes(repos, result)
             except Exception as e:
                 result['status'] = 'failed'; result['snapshotError'] = str(e)
         for handle in handles:

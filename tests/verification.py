@@ -106,5 +106,116 @@ class Verification(unittest.TestCase):
                 runner.validate({'name': 'invalid', 'scope': 'test', 'steps': [{'name': 'test', **step}]})
 
 
+class RepositoryChanges(unittest.TestCase):
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.repo = Path(tmp.name)
+        self.git('init')
+        self.write('Pack/pack.mcmeta', '{}')
+        self.write('Pack/data/example/functions/test.mcfunction', 'say before')
+        self.write('docs/knowledge/runtime.md', 'before')
+        self.write('README.md', 'before')
+        self.commit()
+        self.result = {'status': 'passed', 'repositories': {'repo': runner.snapshot(self.repo)}}
+
+    def git(self, *args):
+        return subprocess.check_output(['git', '-C', str(self.repo), *args], stderr=subprocess.DEVNULL)
+
+    def write(self, name, text):
+        path = self.repo / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+
+    def commit(self):
+        self.git('add', '-A')
+        self.git('-c', 'user.name=Test', '-c', 'user.email=test@example.invalid',
+                 '-c', 'commit.gpgsign=false', 'commit', '-m', '🧪 検証用fixtureを更新')
+
+    def check(self, changed=()):
+        runner.check_repository_changes({'repo': self.repo}, self.result)
+        self.assertEqual(self.result['codeUnchangedDuringRun'], not changed)
+        self.assertEqual(self.result['changedCodeFiles'], {'repo': sorted(changed)})
+        self.assertEqual(self.result['status'], 'failed' if changed else 'passed')
+
+    def test_document_edits_additions_deletions_and_commits_keep_success(self):
+        self.write('docs/knowledge/runtime.md', 'after')
+        self.write('docs/verification/new.md', 'new notes')
+        self.write('AGENTS.md', 'instructions')
+        self.write('CLAUDE.md', '@AGENTS.md')
+        (self.repo / 'README.md').unlink()
+        self.check()
+        self.commit()
+        self.check()
+        before = self.result['repositories']['repo']
+        after = self.result['repositoriesAfterRun']['repo']
+        self.assertNotEqual(before['head'], after['head'])
+        self.assertNotEqual(before['files'], after['files'])
+        self.assertIn('docs/verification/new.md', after['files'])
+
+    def test_code_edit_with_unchanged_git_status_is_detected(self):
+        name = 'Pack/data/example/functions/test.mcfunction'
+        self.write(name, 'say dirty before')
+        self.result['repositories']['repo'] = runner.snapshot(self.repo)
+        self.write(name, 'say dirty after')
+        self.check([name])
+        self.assertEqual(self.result['repositories']['repo']['status'],
+                         self.result['repositoriesAfterRun']['repo']['status'])
+
+    def test_code_and_document_commit_still_fails(self):
+        self.write('Pack/pack.mcmeta', '{"pack": {}}')
+        self.write('docs/knowledge/runtime.md', 'new docs')
+        self.commit()
+        self.check(['Pack/pack.mcmeta'])
+
+    def test_additions_outside_document_allowlist_are_detected(self):
+        names = ['Pack/data/example/functions/new.mcfunction', 'New Pack/pack.mcmeta',
+                 'tests/scenarios/example.json', 'docs/fixture.json', 'docs/helper.py',
+                 'Pack/README.md']
+        for name in names:
+            self.write(name, 'new')
+        self.check(names)
+
+    def test_deletion_and_rename_are_detected_before_and_after_commit(self):
+        old = 'Pack/data/example/functions/test.mcfunction'
+        new = 'Pack/data/example/functions/renamed.mcfunction'
+        (self.repo / old).rename(self.repo / new)
+        (self.repo / 'Pack/pack.mcmeta').unlink()
+        self.check([old, new, 'Pack/pack.mcmeta'])
+        self.commit()
+        self.check([old, new, 'Pack/pack.mcmeta'])
+
+    def test_staging_and_committing_existing_contents_keeps_success(self):
+        self.write('Pack/pack.mcmeta', '{"pack": {}}')
+        self.write('Pack/new.json', '{}')
+        (self.repo / 'Pack/data/example/functions/test.mcfunction').unlink()
+        self.result['repositories']['repo'] = runner.snapshot(self.repo)
+        self.git('add', '-A')
+        self.check()
+        self.commit()
+        self.check()
+
+    def test_symlink_retarget_is_detected(self):
+        name = 'Pack/data/example/functions/link.mcfunction'
+        link = self.repo / name
+        link.symlink_to('test.mcfunction')
+        self.result['repositories']['repo'] = runner.snapshot(self.repo)
+        link.unlink()
+        link.symlink_to('other.mcfunction')
+        self.check([name])
+
+    def test_all_repositories_are_checked_and_existing_failure_is_preserved(self):
+        before = self.result['repositories']['repo']
+        self.result['repositories']['second'] = before
+        self.write('Pack/pack.mcmeta', 'changed')
+        runner.check_repository_changes({'repo': self.repo, 'second': self.repo}, self.result)
+        self.assertEqual(self.result['changedCodeFiles'],
+                         {'repo': ['Pack/pack.mcmeta'], 'second': ['Pack/pack.mcmeta']})
+        self.write('Pack/pack.mcmeta', '{}')
+        runner.check_repository_changes({'repo': self.repo}, self.result)
+        self.assertTrue(self.result['codeUnchangedDuringRun'])
+        self.assertEqual(self.result['status'], 'failed')
+
+
 if __name__ == '__main__':
     unittest.main()

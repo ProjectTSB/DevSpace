@@ -43,10 +43,12 @@ sh scripts/verify.sh Asset/tests/scenarios/dual-rhythm.json
 
 ## 結果と失敗を残す
 
-各試行は別ディレクトリに保存する。`result.json` は開始時と各step前後・終了時に更新され、失敗したstepでも入力と取得済みの応答が残る。成功は全stepの期待値一致、サーバーの正常終了と全dimension保存、検証中の参照repoの状態不変を確認した場合だけ返す。
+各試行は別ディレクトリに保存する。`result.json` は開始時と各step前後・終了時に更新され、失敗したstepでも入力と取得済みの応答が残る。成功は全stepの期待値一致、サーバーの正常終了と全dimension保存、参照repoの開始・終了時のコード内容一致を確認した場合だけ返す。
+
+変更判定はGitが列挙する追跡／未追跡ファイルのパスと内容で行い、repo直下の `README.md`・`AGENTS.md`・`CLAUDE.md` と `docs/` 配下の `.md` 文書だけを除外する。これらの編集・追加・削除や、内容を変えないstage・commitによるHEAD／branch／statusの変化だけでは失敗しない。文書ディレクトリ内でもJSON・スクリプト等は判定対象とし、pack・関数・検証シナリオの追加・削除・移動・内容変更は失敗にする。開始・終了間で変更後に元へ戻した操作やGitのignore対象は検出しないため、検証中の参照コードを編集しない運用は継続する。
 
 - `scenario.json`: 実行した前提・入力・期待値のコピー。
-- `result.json`: 対象repoのpath・branch・HEAD・status・追跡／未追跡ファイルのハッシュ、各stepの実測値、エラー、停止方法、終了コード。
+- `result.json`: `repositories` と `repositoriesAfterRun` に開始・終了時の対象repoのpath・branch・HEAD・status・追跡／未追跡ファイルのハッシュを文書も含めて保存する。`codeUnchangedDuringRun` は上記の内容比較結果、`changedCodeFiles` はrepoごとの判定対象の変更パス。各stepの実測値、エラー、停止方法、終了コードも残る。
 - `*.patch` と `*.changes.tar.gz`: 各repoのHEADからの差分と、変更・未追跡ファイルの内容。削除の情報はpatchとmanifestに残る。再現の基準となるHEADも保持し、共有するシナリオと実装は対象repoに保存する。tarを既存作業ツリーへ無条件に上書きしない。
 - `server.log`、`clients.log`、`dependencies.log`: 起動・接続・インストールの観測。テスト用worldと設定も同じローカル領域に残る。
 
@@ -60,3 +62,5 @@ sh scripts/verify.sh Asset/tests/scenarios/dual-rhythm.json \
 `stop`で終了しない場合だけ、runnerが作ったプロセスグループへTERM、最後にKILLを送る。強制終了した試行は成功にせず、既存worldや別プロセスのロックは削除しない。ログ・worldは失敗後も削除しない。外部からrunner自体をSIGKILLした場合はfinallyを実行できないため、`running` の結果を合格と読まず、記録PIDの実プロセスを確認する。
 
 失敗時の条件・観測・再試行で変えた条件・確認できた範囲は実行記録に残す。複数条件を同時に変えて直った場合は原因を一つに断定しない。完了時は [ナレッジの採用基準](knowledge-maintenance.md#更新時に残すもの) で再利用できる結論を選び、対象repoの既存の該当節へ統合する。sourcesとの同時更新や、試行ごとの成否・未検証項目の一覧の転記は不要。結論を支える確認範囲と証拠への参照だけを必要に応じて残す。
+
+runnerの変更判定・結果保存・シナリオ解釈のオフライン回帰テストは `python3 tests/verification.py` で実行する。Minecraft内の機能検証とは別の確認になる。
