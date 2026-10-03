@@ -52,6 +52,24 @@ Dockerfileで `~/.agents` を `~/.codex/agent-data` への相対リンクとし�
 
 Docker CLI・socketがないため、新構成のビルドとrebuildを挟んだ保存は未検証。Claude Code 2.1.288については配置とリンク先の照合までで、新しい対話セッションからの呼出は未確認。受入確認は、同じDevContainerをrebuildして `readlink -f ~/.agents` と `npx skills list --global` を確認し、両ツールの新しいセッションでスキル一覧から選択して短文を推敲すること。実体と管理情報の保存確認はボリュームを維持した条件で行う。現在のCodex検出結果はGit管理外の `.runtime/verification/personal-skills/codex-discovery.json` に保存した。
 
+## 2026-10-03: ネイティブ環境の対話セットアップ
+
+Windows の Git Bash と macOS 向けに `scripts/setup-native.sh` を追加した。ツールの検出・選択・導入後の確認、VS Code 拡張機能の個別導入、既存 `setup.sh` へのワールド指定の受け渡し、任意の GitHub 認証を行う。VS Code 本体は導入対象に含めない。操作手順は [README](../README.md#devcontainer-を使わない場合の対話セットアップ)、既存の起動処理と分ける理由は [環境設計](development-environment-design.md#既存の起動操作と-optional-の範囲) に記載した。
+
+Linux 上で `sh tests/setup-native.sh` を実行し、OS と外部コマンドを模擬して次を確認した。実際のパッケージ導入や認証は行っていない。
+
+- 両 OS のパッケージ指定、導入済みツールの維持、個別スキップ、確認専用モード、未対応 OS と不正な引数の拒否。
+- Java の最低版と `JAVA_BIN` の参照、導入コマンドの失敗、成功を返してもツールが使えない場合の未完了判定。
+- 入力終了・終了選択での中断、不正な回答の再入力、Homebrew 導入の選択と中断、取得失敗時にインストーラーを実行しないこと、winget 不在時の案内。
+- Windows の PATH を文字列として変換する処理、VS Code CLI 不在時の案内、DHP の指定版への変更と事後確認、DevContainer の拡張一覧との一致。
+- 空欄・既定・空白や日本語とシェル記号を含むワールド指定の受け渡し、GitHub 認証で平文保存や同意の省略を指定しないこと。
+
+新規テスト、`sh tests/setup.sh`、`sh tests/runtime.sh` の13項目、シェル構文検査、`git diff --check` が成功した。新規テストの結果は Git 管理外の `.runtime/verification/native-setup/tests.log` に保存した。
+
+導入方法は [winget install](https://learn.microsoft.com/en-us/windows/package-manager/winget/install)、[Homebrew の導入](https://docs.brew.sh/Installation)と[コマンド仕様](https://docs.brew.sh/Manpage)、[VS Code CLI](https://code.visualstudio.com/docs/configure/command-line)で確認した。パッケージ名は [WinGet の配布定義](https://github.com/microsoft/winget-pkgs/tree/master/manifests)、[Temurin 17](https://formulae.brew.sh/cask/temurin@17)、[Codex](https://formulae.brew.sh/cask/codex)、[Claude Code の導入手順](https://code.claude.com/docs/en/setup)と照合した。Codex の初回認証は [公式 CLI ドキュメント](https://learn.chatgpt.com/docs/codex/cli)を参照した。
+
+Windows / macOS の実機でのインストール、管理者認証、実際の PATH 反映、Homebrew の初回導入、ブラウザーでの認証、拡張機能の動作は未検証。受入確認では、各 OS の通常ユーザーで必要な項目を導入し、VS Code と端末を開き直して `--check` の結果を確認する。DHP の版を確認後に再実行し、既存ツールが再導入されないことと、ワールド指定が既存の設定へ保存されることを照合する。機能検証 runner の対応環境は引き続き Linux / DevContainer。
+
 ## 確認できたこと
 
 | 対象 | 結果・根拠 |

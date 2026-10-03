@@ -193,6 +193,10 @@ VS Code では既存の「Open SkyBlock Server」に相当する起動 task か�
 
 コード開発の取得・更新に必要なのは Git、サーバーを動かす場合は対応する Java。環境の補助処理専用のランタイムは必須にしない。エディタ、Agent、Docker は利用者の選択とする。DevContainer を選ぶ場合は必要な道具をイメージ側に用意する。ネイティブ利用でも、コンテナ内だけにあるコマンドへ依存しない。
 
+Windows の Git Bash と macOS には、任意の導入入口として `scripts/setup-native.sh` を用意する。Git と VS Code 本体は導入済みを前提にし、ツール導入には winget / Homebrew を使う。通常の `setup.sh` と `server.sh` にはパッケージ管理の依存や対話を加えない。対話セットアップは選ばれたツールだけを導入し、リポジトリ取得・ワールド設定は既存の `setup.sh` に委ねる。
+
+ツールの準備完了はパッケージ管理コマンドの成功だけで判断せず、実行できることと必要な版を確認する。Windows では導入後の PATH を現在の処理にも追加するが、古い実行ファイルが優先される場合や、別プロセスの PATH 更新には利用者の対応が必要。シェル設定と既存の `JAVA_BIN` は書き換えず、更新や設定修正を案内する。DHP の指定版への変更も対話で選ぶ。実際のインストーラーと各 OS での動作は、コマンドを模擬した検証とは区別する。
+
 Asset の補助処理には `scripts/extract.sh` の SQLite → CSV、Scala スクリプトの加工、`scripts/update_register.sh` の登録関数更新がある。Scala 3.6.3 等は `scripts/project.scala` に定義される。通常の mcfunction 編集にこれらを実行する必須工程は確認できなかった。SQLite / Scala CLI / bash はその生成処理を使う場合の追加ツールとする。これら既存補助スクリプト自体の Windows / macOS 互換性は未検証なので、全補助処理のネイティブ対応が完了したとは扱わない。
 
 ## DevContainer と性能

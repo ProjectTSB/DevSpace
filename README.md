@@ -4,7 +4,7 @@ TheSkyBlessing、Asset、Asset-AnimatedJava の3リポジトリを使う Minecra
 
 ## 初回セットアップ
 
-必要なのは Git と、ネイティブ実行時の Java 17 以上です。Windows は Git Bash を使います。DevContainer を使う場合、Java はコンテナ内に入るためホストへの Java インストールは不要です。
+必要なのは Git と、ネイティブ実行時の Java 17 以上です。Windows は Git Bash を使います。Windows / macOS でツールも揃える場合は、下の[対話セットアップ](#devcontainer-を使わない場合の対話セットアップ)を利用できます。DevContainer を使う場合、Java はコンテナ内に入るためホストへの Java インストールは不要です。
 
 DevSpace を clone し、Git Bash または macOS/Linux のシェルで次を実行してください。
 
@@ -33,6 +33,43 @@ sh scripts/setup.sh "/path/to/My World"
 指定履歴がなければ `.runtime/world` が初回に自動生成され、以後再利用されます。既定ワールドに戻すときは `sh scripts/setup.sh --container --default-world`（ネイティブでは `--container` を省略）を実行します。元のワールドは削除されません。
 
 DevContainer 用のマウント設定も setup が自動生成します。ワールドの場所を変更したら、コンテナを再作成してください。コンテナ内からのワールド指定は受け付けません。
+
+### DevContainer を使わない場合の対話セットアップ
+
+Windows は WSL を使わず Git Bash で、macOS はターミナルで実行します。VS Code 本体と Git はインストール済みを前提にします。Windows で Git Bash がなければ [Git for Windows](https://gitforwindows.org/) を、macOS で Git がなければ `xcode-select --install` で Command Line Tools を導入してください。
+
+DevSpace を clone した後、そのフォルダーで次を実行します。
+
+```sh
+sh scripts/setup-native.sh
+```
+
+各ツールの用途と導入コマンドが表示されます。`y` で導入、Enter または `n` でスキップ、`q` で終了します。実行できるツールはそのまま使い、Java は17以上、Python は3系を確認します。Node.js は npm も実行できることを確認します。Java の確認には `devspace.local.conf` の `JAVA_BIN` も使います。
+
+| 導入候補 | 用途 |
+| --- | --- |
+| Java 17 | Minecraft サーバー。17以上が使えれば追加導入しません。 |
+| GitHub CLI | PR・Issue の操作と GitHub 認証 |
+| Node.js と npm、Python 3 | 個人用スキルや lint などの補助処理 |
+| ripgrep、jq | コード検索と JSON 加工 |
+| Codex CLI、Claude Code CLI | AI 開発。使うものだけ選びます。 |
+| VS Code 拡張機能 | DevContainer と同じ6候補を個別に選択。DHP は3.4.19を指定します。 |
+
+Windows の導入には [winget](https://learn.microsoft.com/windows/package-manager/winget/)、macOS には [Homebrew](https://docs.brew.sh/Installation) を使います。winget がなければ「アプリ インストーラー」の導入・更新を案内します。Homebrew がない場合は、導入するか別途確認します。管理者認証や配布元の同意画面が出た場合は、内容を確認して進めてください。macOS の Node.js は Homebrew の `node`、Windows は `OpenJS.NodeJS.LTS` を導入します。
+
+導入後はツールを再確認します。Windows の新しい PATH は実行中のセットアップにも読み込みますが、既存の VS Code や端末には反映されません。まだ実行できない場合は両方を開き直し、次で確認してください。古い版が PATH の先頭にある場合は PATH を直すか、Java なら `JAVA_BIN` で使用する実行ファイルを指定します。このスクリプトは対象ツールの更新を実行しません。依存パッケージの導入・更新は各パッケージ管理ツールに従います。
+
+```sh
+sh scripts/setup-native.sh --check
+```
+
+`--check` はインストール・ログイン・ワールド設定を行いません。Java が未準備なら終了コード1、任意ツールや拡張機能の不足だけなら0を返します。通常実行では、選んだ項目の導入・確認に失敗した場合も1を返します。再実行すると、その時点の導入状況から続けられます。
+
+VS Code の `code` コマンドが使えない場合、拡張機能の導入はスキップします。macOS はコマンドパレットの `Shell Command: Install 'code' command in PATH`、Windows は VS Code の `bin` フォルダーを PATH に追加する方法で設定してください。[VS Code CLI の手順](https://code.visualstudio.com/docs/configure/command-line#_launching-from-command-line)を参照します。DHP が別の版なら、3.4.19へ変更するか確認します。
+
+最後にリポジトリ取得とワールド選択、GitHub CLI の認証へ進むか選べます。ワールドは空欄で現状維持、`default` で既定に戻し、それ以外はパスとして既存の `setup.sh` へ渡します。AI CLI は DevSpace で `codex` または `claude` を起動して認証します。サーバーの EULA 同意は[詳細設定](#詳細設定)に従って行います。
+
+個人スキルと AI のシェル設定は必要に応じて[個人用のAI設定](#個人用のai設定と任意スキル)と[起動手順](#起動)から設定します。ツールを導入しても、Linux / DevContainer 向けの機能検証 runner が Windows / macOS 対応になるわけではありません。検証範囲は[検証記録](docs/rebuild-verification.md#2026-10-03-ネイティブ環境の対話セットアップ)に記載しています。
 
 ### GitHub CLI と認証の保存
 
@@ -146,6 +183,7 @@ git -C Asset worktree add -b feature-name ../.worktrees/feature-name/Asset
 
 ```sh
 sh tests/setup.sh
+sh tests/setup-native.sh
 sh tests/runtime.sh
 ```
 
