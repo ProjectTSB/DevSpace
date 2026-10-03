@@ -18,6 +18,14 @@ GitHub CLI Feature と専用の設定ボリュームを追加し、Dev Container
 
 このセッションでは Docker CLI・socket を利用できないため、新構成のビルド、初回ボリュームの所有権、rebuild を挟んだ認証再利用は未検証。受入確認は、新構成で `gh --version` と `test -w "$GH_CONFIG_DIR"` を実行し、初回ログインした後に、同じ DevContainer を再度 rebuild して `gh auth status` が成功すること。
 
+## 2026-10-03: AI CLI の開始位置の自動切替
+
+`scripts/ai-shell.bash` にBash関数を追加し、Dockerfileの既存aliasを、このファイルの読込へ置き換えた。現在のコンテナの `/etc/bash.bashrc` にも同じ読込行を反映した。利用方法と適用範囲は [READMEの起動手順](../README.md#起動) を参照。
+
+`bash tests/ai-shell.bash` で両CLIをスタブに置き換え、通常の2 repoと配下からの移動、DevSpace・別ディレクトリ・類似名・AnimatedJava・linked worktree・入れ子の別repoの除外を確認した。空白・日本語・symlinkを含むパス、既存aliasの置換、再読込、引数・標準入力・終了コード・親シェルの位置の保持も成功した。setupテスト、runtimeの13テスト、Bash構文検査、`git diff --check` も成功した。
+
+現在のコンテナで新規の対話Bashを起動し、実際のAsset・TheSkyBlessingを開始位置として、PATH上の両CLIスタブがDevSpaceで呼ばれ、親シェルは元のrepoに留まることを確認した。AIの実セッションによる規約読取と、Dockerfile変更後のrebuildは未検証。rebuild後は新しいBashで `type codex claude` が関数を示すことと、両repoから開始した新規CLIセッションの作業位置を確認する。
+
 ## 確認できたこと
 
 | 対象 | 結果・根拠 |

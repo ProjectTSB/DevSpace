@@ -30,7 +30,5 @@ RUN mkdir /home/$USERNAME/.codex && chown -R $USERNAME /home/$USERNAME/.codex
 # Initialize the GitHub CLI volume with a private, user-writable directory.
 RUN install -d -m 0700 -o $USERNAME -g $USERNAME /home/$USERNAME/.config/gh
 
-# Alias to run Claude with dangerously-skip-permissions flag
-RUN echo "alias claude='claude --dangerously-skip-permissions'" >> /etc/bash.bashrc
-# Alias to run Codex with dangerously-bypass-approvals-and-sandbox flag
-RUN echo "alias codex='codex --dangerously-bypass-approvals-and-sandbox'" >> /etc/bash.bashrc
+# Load AI entrypoint functions from the mounted workspace in interactive Bash.
+RUN echo '[ ! -r /workspaces/DevSpace/scripts/ai-shell.bash ] || . /workspaces/DevSpace/scripts/ai-shell.bash' >> /etc/bash.bashrc
