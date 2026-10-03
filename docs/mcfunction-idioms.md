@@ -5,6 +5,7 @@ Asset／TheSkyBlessingの実装・レビューで使う、コマンドの意味�
 | 実装したいこと・レビュー対象 | 参照先 |
 | --- | --- |
 | NBT配列の要素を補う／空枠を作る | [一致しない要素も書込みで作られる](#一致しない要素も書込みで作られる) |
+| NBTのフラグがtrueかを判定する | [存在と真偽を区別する](#存在と真偽を区別する) |
 | NBTの変化を検知する／未設定と0を区別する | [代入結果で変更を検知する](#代入結果で変更を検知する)、[既定値を残す](#既定値を残す) |
 | 小数をコマンド結果で受け渡す／NBTの整数を減らす | [整数化を挟む演算](#整数化を挟む演算) |
 | 少なくともN体いるか／scoreが設定されているか | [件数を上限で打ち切る](#件数を上限で打ち切る)、[全int範囲でscoreの存在を調べる](#全int範囲でscoreの存在を調べる) |
@@ -25,6 +26,16 @@ data modify storage example:work Items[{Slot:103b}].Slot set value 0b
 したがって「append元がなくて失敗した→リストは空のまま→Items[0]の条件は偽」とは限らない。後続のfiltered pathへの書込みも追う。検索条件が一意でなければ複数の一致要素が更新され得るため、常に1要素へのupsertとして使わない。既存要素だけを変えたい場合は、書込みの前に存在を判定する。
 
 [本体inventory/set](../TheSkyBlessing/TheSkyBlessing/data/api/functions/inventory/set.mcfunction) は、入力にないslotにもSlotだけの要素を作り、作業shulkerを介して空のアイテムへ変換し、`loot replace` で元の枠を消す。一般のNBTリストの要素生成と、このAPI固有の空枠への変換を区別する。[空配列での実測とAPIの検証](../TheSkyBlessing/docs/verification/mp-xpbar-and-grave.md)を参照。
+
+## 存在と真偽を区別する
+
+NBTのフラグがtrueであることを条件にする場合は、`if data ... {Flag:true}` と値を照合する。`if data ... Flag` は存在の判定なので、falseが保存されていても成立する。
+
+```mcfunction
+execute if data storage example:work {ShouldFinish:true} run function example:finish
+```
+
+書込み側がtrueしか設定しない実装でも、判定側でtrueを照合すれば条件をその場で読める。値にかかわらず設定済みかを知りたい場合には、存在判定を使う。フラグの真偽と、値の欠損を分岐の意図に合わせて区別する。
 
 ## 代入結果で変更を検知する
 
