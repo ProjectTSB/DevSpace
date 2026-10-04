@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+unset DEVSPACE_CODEX_DAEMON
 root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd -P)
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
@@ -40,30 +41,41 @@ alias codex claude &>/dev/null && fail 'old aliases remain'
 
 check() (
     local cli=$1 flag=$2 start=$3 expected=$4 status=0 original
+    shift 4
     cd -- "$start"
     original=$PWD
     export AI_TEST_EXIT=23
     "$cli" 'two words' '' $'line\nbreak' 'literal * $(false)' <<< 'stdin survives' || status=$?
     [[ $status == 23 ]] || fail "$cli exit status changed"
     [[ $PWD == "$original" ]] || fail "$cli changed the parent shell directory"
-    printf '%s\0' "$expected" "$flag" 'two words' '' $'line\nbreak' 'literal * $(false)' > "$tmp/expected"
+    printf '%s\0' "$expected" "$flag" "$@" 'two words' '' $'line\nbreak' 'literal * $(false)' > "$tmp/expected"
     printf 'stdin survives\n' >> "$tmp/expected"
     cmp "$tmp/expected" "$AI_TEST_LOG" || fail "$cli launch differs at $start"
 )
 
 for cli in codex claude; do
     flag=--dangerously-skip-permissions
-    [[ $cli != codex ]] || flag=--dangerously-bypass-approvals-and-sandbox
+    extra=()
+    if [[ $cli == codex ]]; then
+        flag=--dangerously-bypass-approvals-and-sandbox
+        extra=(--no-daemon)
+    fi
     for repo in Asset TheSkyBlessing; do
-        check "$cli" "$flag" "$fixture/$repo" "$fixture"
-        check "$cli" "$flag" "$fixture/$repo/deep folder/data" "$fixture"
+        check "$cli" "$flag" "$fixture/$repo" "$fixture" "${extra[@]}"
+        check "$cli" "$flag" "$fixture/$repo/deep folder/data" "$fixture" "${extra[@]}"
     done
-    check "$cli" "$flag" "$tmp/asset-link" "$fixture"
+    check "$cli" "$flag" "$tmp/asset-link" "$fixture" "${extra[@]}"
     for start in "$fixture" "$tmp/outside" "$fixture/Asset-other" \
         "$fixture/Asset-AnimatedJava" "$fixture/.worktrees/feature/Asset" \
         "$fixture/Asset/linked-worktree" "$fixture/Asset/nested-repo" \
         "$fixture/Asset/outside-link"; do
-        check "$cli" "$flag" "$start" "$start"
+        check "$cli" "$flag" "$start" "$start" "${extra[@]}"
     done
 done
+
+DEVSPACE_CODEX_DAEMON=1 check codex --dangerously-bypass-approvals-and-sandbox "$fixture/Asset" "$fixture"
+check codex --dangerously-bypass-approvals-and-sandbox "$fixture/Asset" "$fixture" --no-daemon
+DEVSPACE_CODEX_DAEMON=0 check codex --dangerously-bypass-approvals-and-sandbox "$fixture" "$fixture" --no-daemon
+DEVSPACE_CODEX_DAEMON= check codex --dangerously-bypass-approvals-and-sandbox "$fixture" "$fixture" --no-daemon
+DEVSPACE_CODEX_DAEMON=1 check claude --dangerously-skip-permissions "$fixture/Asset" "$fixture"
 printf 'AI shell tests passed\n'

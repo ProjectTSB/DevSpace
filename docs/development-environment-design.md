@@ -307,6 +307,8 @@ Claude Code では `CLAUDE.md` が読み込まれるため、各リポジトリ�
 
 対話BashのCLI起動は [ai-shell.bash](../scripts/ai-shell.bash) で包み、通常の2 repoからDevSpaceへ移動して開始する。Gitルートを照合して入れ子の別repoを除き、`.git` がファイルのlinked worktreeも除くことで、並列担当の作業場所を保持する。移動はサブシェル内に限定し、終了後も利用者が元のrepoで作業を続けられるようにする。対象範囲・相対パス引数・通常の起動方法は [READMEの起動手順](../README.md#起動) を参照。
 
+Codex は通常起動に `--no-daemon` を付ける。Dev Containers の SSH 転送先が変わった後、既存の Codex 常駐サーバーが古い `SSH_AUTH_SOCK` を保持する場合があるため、起動元の端末の環境を使う。常駐サーバーを利用する開発者は `DEVSPACE_CODEX_DAEMON=1` で自動付与を解除できる。これは起動時の環境を選ぶ対策であり、稼働中の接続先の更新は行わない。SSH の固定ソケットや更新処理は追加せず、同じ問題を確認していない Claude Code の起動処理も変更しない。`--no-daemon` の仕様は [Codex 公式変更履歴](https://learn.chatgpt.com/docs/changelog)、確認範囲は [検証記録](rebuild-verification.md#2026-10-04-codex-の常駐サーバーを使わない標準起動) を参照。
+
 ```text
 DevSpace/
   AGENTS.md                    # 共通規約・対象repoのナレッジを読む指示

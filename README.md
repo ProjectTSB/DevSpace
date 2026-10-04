@@ -143,7 +143,11 @@ AIの拡張機能はDevSpaceのウィンドウで新しいセッションを開�
 
 DevContainer の対話 Bash では、`TheSkyBlessing`・`Asset` とそのサブディレクトリから `codex` / `claude` を実行すると、自動で DevSpace を開始位置にします。終了後の端末位置は変わりません。DevSpace直下の通常の2 repoだけが対象で、別repo・入れ子のrepo・並列担当のworktreeは元の位置で起動します。既存の承認省略オプションと渡した引数は維持しますが、相対パスの引数は移動後のDevSpaceが基準になるため、ファイル指定には絶対パスを使ってください。明示的な作業場所の指定や既存セッションの再開はCLI側の指定に従います。
 
-起動処理は `scripts/ai-shell.bash` にあり、DevContainerの対話Bashで自動読込されます。ネイティブの Bash で同じ動作を使う場合は、実際のDevSpaceの `scripts/ai-shell.bash` を絶対パスで `source` する設定を `~/.bashrc` に追加します。関数を読み込まないシェル、非対話実行、VS Code拡張機能は自動移動の対象外なので、DevSpaceから開始します。
+Codex は `--no-daemon` を自動で付け、起動元の端末の環境で動作します。以前の常駐サーバーが保持する古い SSH 接続先の再利用を避けるためです。常駐サーバーを使う場合は `DEVSPACE_CODEX_DAEMON=1 codex` と起動すると、このオプションを付けずに Codex 本来の動作に戻ります。常に戻したい場合は、個人の `~/.bashrc` に `export DEVSPACE_CODEX_DAEMON=1` を設定します。Claude Code の起動オプションは変更しません。
+
+この設定でも、起動中の Codex が再接続後の SSH 接続先へ自動追随するわけではありません。再接続後に Codex の SSH 認証が失敗した場合は、通常の端末で `ssh-add -l` が成功することを確認し、その端末から Codex を起動し直してください。
+
+起動処理は `scripts/ai-shell.bash` にあり、DevContainerの対話Bashで自動読込されます。ネイティブの Bash で同じ動作を使う場合は、実際のDevSpaceの `scripts/ai-shell.bash` を絶対パスで `source` する設定を `~/.bashrc` に追加します。関数を読み込まないシェル、非対話実行、VS Code拡張機能には自動移動も `--no-daemon` の付与も適用されないため、DevSpaceから開始します。
 
 ### AIへの依頼とコード補完
 

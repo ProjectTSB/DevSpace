@@ -32,6 +32,16 @@ Docker CLI・socket がないため、新構成のビルド、マウント後の
 2. 対象repoを別ウィンドウで開いて mcfunction を表示し、DHP の出力の `globalStoragePath` と `cachePath` がボリューム配下であること、共通データと `cache.json` が生成されることを確認する。
 3. 保存されたファイルのパスとハッシュを記録し、同じ DevContainer を rebuild する。対象repoを開く前にファイルの保持を照合し、そのrepoを開いて DHP のキャッシュ読込と補完・診断を確認する。初回導入時は旧コンテナのキャッシュを引き継がず、生成後の次回 rebuild から保持する。
 
+## 2026-10-04: Codex の常駐サーバーを使わない標準起動
+
+`scripts/ai-shell.bash` の Codex 起動に `--no-daemon` を追加した。`DEVSPACE_CODEX_DAEMON=1` の場合は追加せず、Codex 本来の動作に戻す。開始位置の切替と承認省略の引数は維持し、Claude Code は変更していない。利用方法は [README](../README.md#起動)、採用理由と適用条件は [環境設計](development-environment-design.md#自動読み込みの入口) を参照。
+
+`bash tests/ai-shell.bash` で通常起動、解除、次の起動で既定に戻ること、引数・標準入力・終了コード・親シェルの位置の保持を確認した。既存の repo・worktree の判定と Claude Code の検査も成功した。現在のコンテナで新しい対話 Bash を起動し、実際の Asset から両 CLI のスタブを呼び、共通起動処理の自動読込、既定と解除時の引数、DevSpace への移動を確認した。`sh tests/setup.sh`、`sh tests/runtime.sh` の13項目、Bash 構文検査、`git diff --check` も成功した。
+
+調査時の CLI は 0.157.1、稼働中の常駐サーバーは 0.160.0 だった。両バイナリで `--no-daemon resume --help` が成功した。バイナリの更新と既存サーバーの再起動は行っていない。
+
+利用者の再起動後、実際の Codex プロセスが 0.157.1 で `--no-daemon resume` を指定して動作していることを確認した。実行コマンドには新しい SSH 接続先が渡され、接続先を上書きせず `ssh-add -l` で鍵2件を取得できた。`ssh -o BatchMode=yes -T git@github.com` は認証成功を返し、TSB-ResourcePack の既存 SSH remote に対する `git ls-remote` も成功した。起動したまま再接続を挟む運用と、rebuild の再現検証は未実施。
+
 ## 2026-10-03: AI CLI の開始位置の自動切替
 
 `scripts/ai-shell.bash` にBash関数を追加し、Dockerfileの既存aliasを、このファイルの読込へ置き換えた。現在のコンテナの `/etc/bash.bashrc` にも同じ読込行を反映した。利用方法と適用範囲は [READMEの起動手順](../README.md#起動) を参照。

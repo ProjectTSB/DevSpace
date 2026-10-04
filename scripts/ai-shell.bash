@@ -20,7 +20,11 @@ _devspace_ai_run() (
 )
 
 codex() {
-    _devspace_ai_run codex --dangerously-bypass-approvals-and-sandbox "$@"
+    local daemon_args=(--no-daemon)
+    if [[ ${DEVSPACE_CODEX_DAEMON:-0} == 1 ]]; then
+        daemon_args=()
+    fi
+    _devspace_ai_run codex --dangerously-bypass-approvals-and-sandbox "${daemon_args[@]}" "$@"
 }
 
 claude() {
