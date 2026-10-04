@@ -10,6 +10,7 @@ DevSpace は開発環境のリポジトリです。コードは次の独立し�
 | --- | --- |
 | TheSkyBlessing 本体・共通 API | `TheSkyBlessing/docs/knowledge/README.md` |
 | Asset の神器・Mob・Object 等 | `Asset/docs/knowledge/README.md` |
+| TSB-ResourcePack のテクスチャ・モデル・公開 CI | 対象作業コピーの `docs/knowledge/README.md`。文書がないブランチでは [main のナレッジ](https://github.com/ProjectTSB/TSB-ResourcePack/blob/main/docs/knowledge/README.md)。サーバーへの適用は [README のサーバーリソースパック](README.md#サーバーリソースパック) |
 | 環境設定・setup・起動処理 | `README.md`、`docs/rebuild-verification.md`。設計理由が必要なら `docs/development-environment-design.md` の対象節 |
 
 共通規約はこのDevSpaceのAGENTS.mdを正本とする。子repoのAGENTS.mdは開始位置の案内だけを持ち、通常の参照経路は上表から直接ナレッジへ進む。子repo単体でAI開発を完結させる運用は推奨しない。

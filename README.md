@@ -155,11 +155,22 @@ Codex は `--no-daemon` を自動で付け、起動元の端末の環境で動�
 
 DevSpaceのウィンドウはAIへの依頼・環境操作・検証に使い、DHP 3.4.19向けの `.vscode/settings.json` で全packを自動索引から除外する設定にしています。補完・診断が必要なときは `code -n /workspaces/DevSpace/Asset` などで対象repoだけを別ウィンドウに開きます。そこではrepo自身の設定を使います。通常のAIセッションはDevSpace側で続けます。動作確認の範囲は [検証記録](docs/rebuild-verification.md) を参照してください。
 
-保存後、Minecraft が対応する変更は `/reload` で反映します。サーバー停止は端末で Ctrl-C です。リソースパックは `RESOURCEPACK_URI` を使い、起動時に hash を更新します。
-
-リソースパックは既定で TSB-ResourcePack の `dev` リリースを使います。起動スクリプトが URL と SHA-1 を `server.properties` に設定するため、クライアント側でサーバーリソースパックを許可すると接続時に取得・適用されます。ローカルで編集したリソースパックを自動配信する仕組みではありません。起動時の取得と設定は検証済みですが、ゲームクライアントでの適用は未確認です。
+保存後、Minecraft が対応する変更は `/reload` で反映します。サーバー停止は端末で Ctrl-C です。
 
 ポートを変える場合は、サーバー停止後に `devspace.local.conf` の `SERVER_PORT=25566` のような設定を追加・変更し、再起動します。DevContainer の明示的な自動転送設定は `.devcontainer/devcontainer.json` の `25565` 固定で、`SERVER_PORT` とは連動しません。変更後のポートは VS Code の「ポート」欄から転送を追加し、表示された転送先へ接続してください。この設定経路は `scripts/lib/runtime.sh` とコンテナ設定のコードで確認したもので、変更ポートでのクライアント接続は未検証です。
+
+### サーバーリソースパック
+
+既定では TSB-ResourcePack の [dev リリース](https://github.com/ProjectTSB/TSB-ResourcePack/releases/tag/dev) にある `resources.zip` を使います。TSB-ResourcePack の作業ブランチへ変更を push すると、そのブランチ用の ZIP も公開され、サーバーリソースパックとして指定できます。
+
+1. TSB-ResourcePack で作業ブランチを作成し、変更を commit・push します。フォント生成 CI の完了後に動く `publish` が成功したことを確認します。
+2. dev リリースで、添付ファイルのラベルが対象ブランチ名と公開したいコミットを示していることを確認し、その ZIP のダウンロード URL をコピーします。
+3. サーバーを停止し、`devspace.local.conf` の `RESOURCEPACK_URI` にコピーした URL を設定します。形式は `RESOURCEPACK_URI=URL` で、値を引用符で囲みません。
+4. `sh scripts/server.sh` で起動し、クライアント側でサーバーリソースパックを許可して接続します。
+
+起動時に指定 URL の ZIP を取得し、URL と計算した SHA-1 を `server.properties` へ設定します。同じブランチを更新した場合も、CI の公開完了後にサーバーを再起動して SHA-1 を更新します。リソースパックの切替・更新にはサーバーの再起動とクライアントの再接続が必要です。
+
+ブランチを削除すると対応する ZIP も削除されるため、削除前に `RESOURCEPACK_URI` を利用可能な URL へ戻します。既定の URL は `https://github.com/ProjectTSB/TSB-ResourcePack/releases/download/dev/resources.zip` です。公開条件、ZIP の命名、手動での再公開は [TSB-ResourcePack のナレッジ](https://github.com/ProjectTSB/TSB-ResourcePack/blob/main/docs/knowledge/README.md) を参照してください。
 
 ### 並列開発
 
