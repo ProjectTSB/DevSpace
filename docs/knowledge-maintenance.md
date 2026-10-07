@@ -75,6 +75,7 @@ APIや実行基盤の挙動は提供側のナレッジを正本とし、利用�
 | repo共通の用語・翻訳・表記の指定 | DevSpaceの [用語と表記](terminology.md)。AGENTS.mdには参照指示を置き、用語ごとの指定はリンク先へ集約する |
 | Issue・PR本文の目的・記載内容・確認観点 | DevSpaceの [Issue・PR本文の書き方](issue-pr-descriptions.md)。作成・更新時に参照し、子repoへ複製しない |
 | 両repoに適用できるコマンドの意味・数値・実行文脈のイディオム | DevSpaceの [共通イディオム](mcfunction-idioms.md)。子repoにはAPI固有の契約と利用例を残す |
+| 開発用スクリプトの作成・保存・配置・再実行・検証 | DevSpaceの [開発用スクリプトの作成と保存](script-development.md)。AGENTS.mdには要点と参照指示を置き、各repoには機能固有の契約・設計理由・実行手順を残す |
 | 知識の採用・配置・更新手順 | DevSpaceのこの文書 |
 | 環境操作・共通検証手順・環境の設計理由 | DevSpaceの `README.md`、`docs/runtime-verification.md`、`docs/development-environment-design.md` の該当節 |
 | コード固有の構造・契約・原因・採用済みの設計理由 | 対象repoの `docs/knowledge/` の既存の該当節。コードと同じ作業コピーで更新する |
