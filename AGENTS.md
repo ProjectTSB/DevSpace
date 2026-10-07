@@ -13,6 +13,8 @@ DevSpace は開発環境のリポジトリです。コードは次の独立し�
 | TSB-ResourcePack のテクスチャ・モデル・公開 CI | 対象作業コピーの `docs/knowledge/README.md`。文書がないブランチでは [main のナレッジ](https://github.com/ProjectTSB/TSB-ResourcePack/blob/main/docs/knowledge/README.md)。サーバーへの適用は [README のサーバーリソースパック](README.md#サーバーリソースパック) |
 | 環境設定・setup・起動処理 | `README.md`、`docs/rebuild-verification.md`。設計理由が必要なら `docs/development-environment-design.md` の対象節 |
 
+本文・コメント・レビューを書く前に、[用語と表記](docs/terminology.md) を読み、対象の用語に適用する。
+
 共通規約はこのDevSpaceのAGENTS.mdを正本とする。子repoのAGENTS.mdは開始位置の案内だけを持ち、通常の参照経路は上表から直接ナレッジへ進む。子repo単体でAI開発を完結させる運用は推奨しない。
 
 - 必要な文書は Agent が選ぶ。参照するかをユーザーに確認せず、対象repoの `docs/knowledge/README.md` の案内から該当領域へ進む。レビューのみ・調査のみでも同じ入口を使い、編集禁止の指示は維持する。
@@ -84,7 +86,7 @@ PRのレビュー対応では、行コメントに加えてレビュー本文・
 
 ## 共通のmcfunction規約
 
-以下は Asset／TheSkyBlessing の手書きmcfunctionに共通する。生成物や同梱ライブラリは、それぞれの生成手順・規約を先に確認する。NBT・数値・selector・移動・幾何の実装やレビューでは、[共通イディオム](docs/mcfunction-idioms.md) の用途索引から該当節を確認する。見慣れない記法を保護するだけでなく、新規実装の選択肢として使い、適用条件・副作用・値域を照合する。
+以下は Asset／TheSkyBlessing の手書きmcfunctionに共通する。生成物や同梱ライブラリは、それぞれの生成手順・規約を先に確認する。NBT・数値・selector・移動・幾何・displayの実装やレビューでは、[共通イディオム](docs/mcfunction-idioms.md) の用途索引から該当節を確認する。見慣れない記法を保護するだけでなく、新規実装の選択肢として使い、適用条件・副作用・値域を照合する。
 
 - 関数の IMP Doc（`#>`、`@public` / `@within` / `@private` / `@api` 等）は役割と既存例に合わせる。説明の粒度は上記の「コメントに残す情報を選ぶ」に従う。関数・タグ・score・storageの利用前に宣言元の公開範囲を確認し、呼出元が含まれるか照合する。参照できることを利用許可と扱わず、呼ぶためだけに可視性を広げない。
 - `#declare` は対応する IMP Doc ブロックより1段（4スペース）深くインデントする。インデントはアクセス修飾子の適用範囲を決めるため、修飾子を書くだけで適用されたと判断しない。実サーバーでの動作成功はコメント内の可視性指定の検証にはならない。

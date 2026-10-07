@@ -11,6 +11,7 @@ Asset／TheSkyBlessingの実装・レビューで使う、コマンドの意味�
 | 少なくともN体いるか／scoreが設定されているか | [件数を上限で打ち切る](#件数を上限で打ち切る)、[全int範囲でscoreの存在を調べる](#全int範囲でscoreの存在を調べる) |
 | 移動の慣性を消す／移動前後の位置を使う | [実行位置を移動前の値として保持する](#実行位置を移動前の値として保持する) |
 | ベクトル・方向・角度を計算する | [実行位置と向きを計算に使う](#実行位置と向きを計算に使う) |
+| ブロック・モデル・文字や画像を表示する | [display三種を表示内容から選ぶ](#display三種を表示内容から選ぶ) |
 | 同値の再設定・0・空配列を削除してよいか | [値が変わらなくても操作には意味がある](#値が変わらなくても操作には意味がある) |
 
 ## 一致しない要素も書込みで作られる
@@ -129,6 +130,38 @@ tp @s ~ ~ ~
 レビューでは実行者、位置、向き、次元を別々に追い、連鎖全体で得るベクトルや角度を式にする。原点への移動や巨大な後退距離を、実体を移動させる命令や演出上の距離と決めつけない。途中の `at @s`、係数の変更、facingの差替えは計算を変える。
 
 方向の合成・追尾・回転は[Assetの幾何例](../Asset/docs/knowledge/runtime-and-tools.md#execute幾何学で表示の回転を作る)、内積による判定・反射・滑り移動は[本体の幾何部品](../TheSkyBlessing/docs/knowledge/runtime-components.md#幾何移動rom結果の受け渡し方が違う部品)に式とAPI条件がある。共有markerを使う場合は借用区間と復元も契約に含める。
+
+## display三種を表示内容から選ぶ
+
+Minecraft 1.20.4では、表示するデータに合わせて次の三種を選ぶ。三種とも表示用entityであり、見た目を拡大しても物理的な当たり判定は生まれない。クリックの検出や攻撃の命中判定は別に用意する。
+
+| 種類 | 選ぶ場面 | 主な入力と注意点 |
+| --- | --- | --- |
+| `block_display` | ブロックの見た目やブロック状態を使う演出 | `block_state` の `Name`・`Properties`。実ブロックの設置やblock entityの再現にはならない |
+| `item_display` | アイテムモデルやCustomModelDataで指定する立体モデル | `item` に1.20.4のItemStack形式を渡す。`item_display` フィールドはモデルJSONの表示変換を選ぶ値で、entityの種類とは区別する |
+| `text_display` | 名前・数値・文章、フォントの字形で表す画像 | `text` のTextComponent。`font` で演出画像も表示できる。文字の配置・背景・不透明度は専用フィールドで指定する |
+
+表示内容を変える入力と、位置・回転・拡大縮小を変える `transformation` は分けて選ぶ。`billboard` は視点への追従を指定する。`width`・`height` は描画を省略する判定用の箱で、当たり判定の大きさではない。種別を変えるとモデルの原点や表示変換も変わるため、同じtransformationを移すだけで同じ位置・大きさになるとは扱わない。
+
+実例はAssetの [氷の表示](../Asset/Asset/data/asset/functions/object/2158.haruclaire_death/summon/.mcfunction)、[標識モデル](../Asset/Asset/data/asset/functions/object/1012.traffic_sign/summon/m.mcfunction)、[フォントを使った斬撃](../Asset/Asset/data/asset/functions/object/1187.dimension_slash/summon/m.mcfunction)。本体の [墓](../TheSkyBlessing/TheSkyBlessing/data/player_manager/functions/grave/build/m.mcfunction) はitem_displayで外形、text_displayで名前、interactionで操作の受付を分担する。選択基準は形状と必要な操作から決め、三種の処理負荷に未計測の順位を付けない。
+
+### 光量と、面の向きによる陰影を分ける
+
+`brightness:{block:15,sky:15}` は描画に渡すブロック光・天空光を最大にする。未指定時はentityの位置の光量を使う。これは周囲を照らす光源の設置ではなく、モデルの陰影を消す設定でもない。
+
+Minecraft 1.20.4の標準シェーダーでは、text_displayとitem／block_displayで次の違いがある。
+
+| 描画対象 | 光量の扱い | 面の向きによる陰影 |
+| --- | --- | --- |
+| 通常のitem／block_displayのモデル | 環境光またはbrightnessの指定を使う | 通常のモデル描画では法線と光の方向から陰影を付ける。光量を最大にしても、面や向きで暗く見えることがある。モデルと描画経路にも依存する |
+| text_displayの文字・フォント画像、`see_through:false` | 環境光またはbrightnessの指定を使う | モデルのような法線による陰影計算がなく、表示面の向きだけで同じ陰影は付かない |
+| text_displayの文字・フォント画像、`see_through:true` | この描画経路ではライトマップを参照しない | 法線による陰影計算も行わない。ただし遮蔽の扱いも変わり、ブロック越しに見える |
+
+向きを変えても画像の色を一定に見せたい平面の演出では、フォント画像をtext_displayで描き、`see_through:false` と最大brightnessを使う構成が候補になる。立体モデルを使う場合は、brightnessだけで全面を同じ明るさにできるとは考えない。text_displayも通常表示では環境光を受けるため、「文字だから常に最大光量」とも扱わない。
+
+根拠は、ハッシュを公式配布情報と照合した [1.20.4クライアントJAR](https://piston-data.mojang.com/v1/objects/fd19469fed4a4b4c15b2d5133985f0e3e7816a8a/client.jar) と [公式マッピング](https://piston-data.mojang.com/v1/objects/be76ecc174ea25580bdc9bf335481a5192d9f3b7/client.txt)。DisplayRendererの光量選択、TextDisplayRendererの描画モード、`rendertype_text`／`rendertype_text_intensity` と各 `see_through`、`rendertype_entity_solid`／`rendertype_entity_cutout` の頂点シェーダーを照合した。shaderを差し替えるパックやModには、この標準描画の結果をそのまま適用しない。
+
+三種の入力・表示専用の性質・共通フィールドは [Mojangの導入時仕様](https://www.minecraft.net/en-us/article/minecraft-snapshot-23w06a) と上記の1.20.4実装を照合した。補間の開始方法など、その後に変更された仕様を導入時の記事だけから転記しない。向きを扱う本体APIの契約は、依存先TheSkyBlessingの `docs/knowledge/runtime-components.md`「displayのRotationと見た目の向きを分ける」を参照する。
 
 ## 値が変わらなくても操作には意味がある
 
