@@ -194,6 +194,8 @@ git -C Asset worktree add -b feature-name ../.worktrees/feature-name/Asset
 
 共通規約・ナレッジ参照・更新方針はDevSpaceで一元管理します。TheSkyBlessingとAssetの `AGENTS.md` は、子repoを開始位置とする通常のAI利用を推奨せず、DevSpaceへ案内するために残します。子repoの `docs/knowledge/` にはコード固有の構造・契約・実例を置き、コードと同じブランチで更新します。AIはDevSpaceの案内から必要な本文を読みます。並列担当にはDevSpaceの規約を引き渡し、共通ルールを子repoへ複製しません。各 `CLAUDE.md` は同じ場所の `AGENTS.md` を参照します。
 
+個別の判断は各 repo の `docs/knowledge/notes/` にノートとして置き、探すときは `python3 scripts/knowledge/index.py <作業コピー>` でそのブランチのヘッダーからINDEXを生成します。INDEXのファイルは保存しません。ノートの形式・参照経路・検査・人がマージする範囲は [ナレッジのノートとINDEX](docs/knowledge-notes.md) を参照してください。
+
 レビューの根拠・採用状況は各 repo の `docs/knowledge/sources.md`、知識の更新と共有方法は [ナレッジの配置と更新](docs/knowledge-maintenance.md) を参照してください。子 repo の文書は各 repo 側の変更として管理します。
 
 ## 検証
@@ -204,7 +206,10 @@ git -C Asset worktree add -b feature-name ../.worktrees/feature-name/Asset
 sh tests/setup.sh
 sh tests/setup-native.sh
 sh tests/runtime.sh
+python3 tests/knowledge.py
 ```
+
+`tests/knowledge.py` はINDEX生成とノート検査の回帰確認です。対象repoの作業コピーは変更しません。
 
 実サーバーでの機能検証は、対象repoに保存したシナリオを共通runnerへ渡すと再実行できます。専用worldで実行し、入力・期待値・実測値・失敗と終了結果を試行ごとに保存します。Linux / DevContainer向けの手順と前提は [機能検証](docs/runtime-verification.md) を参照してください。
 
