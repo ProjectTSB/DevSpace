@@ -26,7 +26,11 @@ def main(argv=None):
         print(f'{root} はGitの作業コピーではない', file=sys.stderr)
         return 2
 
-    targets = collect(root, arguments)
+    try:
+        targets = collect(root, arguments)
+    except ValueError as outside:
+        print(f'作業コピーの外のパスは検査できない: {outside}', file=sys.stderr)
+        return 2
     knowledge = [path for path in targets
                  if path.startswith(notes.KNOWLEDGE_DIR + '/') and path != notes.ENTRY_DOC]
     findings = [(path, notes.validate(notes.Document(root, path))) for path in knowledge]
@@ -39,7 +43,12 @@ def main(argv=None):
 def collect(root, arguments):
     """Choose the files to inspect: the request, the whole knowledge set, or the diff."""
     if arguments.paths:
-        chosen = [relative(root, path) for path in arguments.paths]
+        chosen = []
+        for path in arguments.paths:
+            found = relative(root, path)
+            if found is None:
+                raise ValueError(path)
+            chosen.append(found)
     elif arguments.all:
         chosen = [document.relative for document in notes.documents(root)]
     else:
@@ -52,13 +61,15 @@ def collect(root, arguments):
 
 
 def relative(root, path):
+    """Name a requested path relative to the working copy, or None if it falls outside."""
     candidate = Path(path)
-    resolved = candidate if candidate.is_absolute() else Path.cwd() / candidate
-    try:
-        return resolved.resolve().relative_to(root).as_posix()
-    except ValueError:
-        return (root / path).resolve().relative_to(root).as_posix() if (root / path).exists() \
-            else path.replace('\\', '/')
+    for base in (Path.cwd(), root):
+        resolved = (candidate if candidate.is_absolute() else base / candidate).resolve()
+        try:
+            return resolved.relative_to(root).as_posix()
+        except ValueError:
+            continue
+    return None
 
 
 def changed(root):

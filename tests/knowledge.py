@@ -271,6 +271,13 @@ related:
         self.assertEqual(code, 1)
         self.assertIn('description が空である', output)
 
+    def test_paths_outside_the_working_copy_are_refused(self):
+        error = io.StringIO()
+        with contextlib.redirect_stderr(error):
+            code = check.main([str(self.copy.root), '../elsewhere.md'])
+        self.assertEqual(code, 2)
+        self.assertIn('作業コピーの外のパスは検査できない', error.getvalue())
+
     def test_protected_changes_are_listed_without_becoming_findings(self):
         self.copy.write('docs/knowledge/README.md', '# 入口\n\n変更した。\n')
         code, output = self.run_check()
