@@ -7,3 +7,4 @@
 /devspace.local.conf
 /.devcontainer/.env
 *.zip
+__pycache__/
