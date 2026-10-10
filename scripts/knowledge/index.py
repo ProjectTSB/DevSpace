@@ -28,6 +28,10 @@ def main(argv=None):
         return 2
 
     found = notes.documents(root, area=arguments.area, notes_only=arguments.notes_only)
+    if arguments.area and not found:
+        areas = sorted({document.area for document in notes.documents(root)})
+        print(f'{arguments.area} の領域はない。ある領域: ' + '、'.join(areas), file=sys.stderr)
+        return 2
     print('\n'.join(render(root, found, arguments)))
     return 0
 

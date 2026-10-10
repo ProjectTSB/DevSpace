@@ -146,6 +146,14 @@ related:
         self.assertEqual(self.copy.status(), before)
         self.assertFalse(list(self.copy.root.glob('**/INDEX*')))
 
+    def test_an_unknown_area_lists_the_existing_ones(self):
+        self.copy.note('docs/knowledge/notes/motion/stop.md')
+        error = io.StringIO()
+        with contextlib.redirect_stderr(error):
+            code = index.main([str(self.copy.root), '--area', 'motionn'])
+        self.assertEqual(code, 2)
+        self.assertIn('ある領域: motion', error.getvalue())
+
     def test_missing_knowledge_directory_is_reported(self):
         empty = Path(self.stack.enter_context(tempfile.TemporaryDirectory()))
         error = io.StringIO()
@@ -163,7 +171,7 @@ class CheckTest(unittest.TestCase):
 
     def run_check(self, *arguments):
         output = io.StringIO()
-        with contextlib.redirect_stdout(output):
+        with contextlib.redirect_stdout(output), contextlib.redirect_stderr(output):
             code = check.main([str(self.copy.root), *arguments])
         return code, output.getvalue()
 
@@ -277,6 +285,34 @@ related:
             code = check.main([str(self.copy.root), '../elsewhere.md'])
         self.assertEqual(code, 2)
         self.assertIn('作業コピーの外のパスは検査できない', error.getvalue())
+
+    def test_an_unresolvable_base_is_refused_instead_of_looking_empty(self):
+        self.copy.note('docs/knowledge/notes/motion/stop.md', description='')
+        self.copy.commit('説明のないノート')
+        code, output = self.run_check('--base', 'origin/absent')
+        self.assertEqual(code, 2)
+        self.assertIn('--base のrefを解決できない', output)
+
+    def test_duplicate_titles_in_one_working_copy_are_reported(self):
+        self.copy.note('docs/knowledge/notes/motion/stop.md', title='同じ題')
+        self.copy.note('docs/knowledge/notes/motion/copy.md', title='同じ題')
+        code, output = self.run_check('--all')
+        self.assertEqual(code, 1)
+        self.assertIn('title が他の文書と重複している', output)
+        self.assertIn('docs/knowledge/notes/motion/copy.md', output)
+
+    def test_area_must_match_where_the_note_is_stored(self):
+        self.copy.note('docs/knowledge/notes/motion/stop.md', area='geometry')
+        code, output = self.run_check('--all')
+        self.assertEqual(code, 1)
+        self.assertIn('area が置き場所と違う', output)
+
+    def test_changes_with_non_ascii_names_are_not_skipped(self):
+        self.copy.note('docs/knowledge/notes/motion/ノート.md')
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('ノート.md', output)
+        self.assertIn('ノートのファイル名は英小文字・数字・ハイフンにする', output)
 
     def test_protected_changes_are_listed_without_becoming_findings(self):
         self.copy.write('docs/knowledge/README.md', '# 入口\n\n変更した。\n')

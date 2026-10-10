@@ -31,13 +31,36 @@ def main(argv=None):
     except ValueError as outside:
         print(f'作業コピーの外のパスは検査できない: {outside}', file=sys.stderr)
         return 2
+    except LookupError as base:
+        print(f'--base のrefを解決できない: {base}。fetch済みのrefを渡す', file=sys.stderr)
+        return 2
     knowledge = [path for path in targets
                  if path.startswith(notes.KNOWLEDGE_DIR + '/') and path != notes.ENTRY_DOC]
-    findings = [(path, notes.validate(notes.Document(root, path))) for path in knowledge]
-    findings = [(path, messages) for path, messages in findings if messages]
+    findings = {}
+    for path in knowledge:
+        messages = notes.validate(notes.Document(root, path))
+        if messages:
+            findings[path] = messages
+    for path, messages in duplicate_titles(root, knowledge).items():
+        findings.setdefault(path, []).extend(messages)
 
-    report(root, targets, knowledge, findings)
+    report(root, targets, knowledge, sorted(findings.items()))
     return 1 if findings else 0
+
+
+def duplicate_titles(root, knowledge):
+    """Report titles that another document of the same working copy already uses."""
+    titles = {}
+    for document in notes.documents(root):
+        if document.header.get('title'):
+            titles.setdefault(document.header['title'], []).append(document.relative)
+    found = {}
+    for paths in titles.values():
+        for path in paths if len(paths) > 1 else ():
+            others = ', '.join(f'`{other}`' for other in paths if other != path)
+            if path in knowledge:
+                found.setdefault(path, []).append(f'title が他の文書と重複している: {others}')
+    return found
 
 
 def collect(root, arguments):
@@ -54,6 +77,10 @@ def collect(root, arguments):
     else:
         chosen = changed(root)
     if arguments.base:
+        # An unresolvable ref would otherwise look like an empty difference.
+        if not notes.git_output(root, 'rev-parse', '--verify', '--quiet',
+                                f'{arguments.base}^{{commit}}'):
+            raise LookupError(arguments.base)
         diff = notes.git_output(root, 'diff', '--name-only', '--diff-filter=ACMR',
                                 f'{arguments.base}...HEAD')
         chosen += [line for line in diff.split('\n') if line]
@@ -74,7 +101,7 @@ def relative(root, path):
 
 def changed(root):
     """List working-tree and staged changes, including untracked files."""
-    status = notes.git_output(root, 'status', '--porcelain=v1',
+    status = notes.git_output(root, '-c', 'core.quotePath=false', 'status', '--porcelain=v1',
                               '--untracked-files=all', strip=False)
     paths = []
     for line in status.split('\n'):

@@ -161,6 +161,10 @@ def header_findings(document):
                '。どの作業で読むかを一文で書き、詳細は本文へ置く')
     if header.get('area') and not AREA_SEGMENT.match(header['area'].split('/')[0]):
         yield 'area は英小文字・数字・ハイフンで書く'
+    if document.is_note and header.get('area'):
+        directory = '/'.join(document.relative[len(NOTES_DIR) + 1:].split('/')[:-1])
+        if directory and header['area'] != directory:
+            yield f'area が置き場所と違う: `{NOTES_DIR}/{directory}/` に置くか area を揃える'
     heading = heading_title(document.body)
     if header.get('title') and heading != header['title']:
         yield f'本文の見出しがヘッダーと違う: `# {heading}` と title `{header["title"]}`'
