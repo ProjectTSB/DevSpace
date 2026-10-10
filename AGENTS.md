@@ -22,7 +22,7 @@ Asset・TheSkyBlessingのナレッジは、入口の `docs/knowledge/README.md` 
 - 必要な文書は Agent が選ぶ。参照するかをユーザーに確認せず、対象repoの `docs/knowledge/README.md` の案内から該当領域へ進む。レビューのみ・調査のみでも同じ入口を使い、編集禁止の指示は維持する。
 - 開発対象が増えたときやブランチ変更後は、対象作業コピーの `docs/knowledge/README.md` を読み直し、その作業コピーでINDEXを生成し直す。詳細文書とノートはリンクされているだけで読み込み済みとは扱わない。
 - 読取結果に `truncated`・省略があれば、その範囲は未読として扱い、対象ファイルを行範囲・節ごとに分けて取り直す。コマンドの成功だけを読了の根拠にしない。設計判断前に、依頼から選んだ関連領域と取得済みの本文を照合する。
-- AssetのMob／Objectの定義・継承・Fieldを扱う場合は `object-model.md` を先に読む。Effectの定義・継承・Field・イベントを扱う場合は、その作業コピーの `docs/knowledge/README.md` が案内するEffectの文書を先に読む。カテゴリをまたぐ連携では `object-model.md` のカテゴリ間の契約も確認する。Assetから本体APIを使う場合も、本体のナレッジからAPI契約を確認し、状態・装備・補正は `architecture.md`、接触・範囲判定・inventoryは `runtime-components.md` の対象節へ進む。本体を編集しない場合も適用する。
+- AssetのMob／Objectの定義・継承・Fieldを扱う場合は `object-model.md` を先に読む。Effectの定義・継承・Field・イベントを扱う場合は、その作業コピーの `docs/knowledge/README.md` が案内するEffectの文書を先に読む。カテゴリをまたぐ連携では `object-model.md` のカテゴリ間の契約も確認する。Assetから本体APIを使う場合も、本体のナレッジからAPI契約を確認し、状態・装備・補正は `architecture.md`、接触・範囲判定・inventoryは `runtime-components.md` の対象節へ進む。本体を編集しない場合も適用する。指名した領域文書だけで判断せず、同じ作業コピーのINDEXでその領域のノートも確認する。
 - 文書内のrepo相対パスは、その文書が属するrepoを基準に解決する。worktreeを指定された場合は、その作業コピーの入口・ナレッジ・コードを読み、更新も同じ作業コピーへ行う。依存repoも参照する作業コピーを明確にする。
 - `Asset-AnimatedJava` は生成物を含む独立 repo。調査は入口と必要なモデルに絞る。この repo の体系的な知識整理は今回の2 repo の整理対象に含まれない。
 

@@ -22,7 +22,7 @@
 | --- | --- | --- |
 | `title` | 必須 | ノートの題。本文の `#` 見出しと同じ文にする（60文字以内） |
 | `description` | 必須 | どの作業で読むかを示す一文（120文字以内） |
-| `area` | 任意 | INDEXでまとめる領域名。省略すると `notes/` 配下のディレクトリ名を使う |
+| `area` | 任意 | INDEXでまとめる領域名。省略すると `notes/` 配下のディレクトリ名を使う。ディレクトリに置いたノートで明示する場合は、そのディレクトリ名と揃える |
 | `paths` | 任意 | 発見に役立つ対象パス。repo直下からの相対パス |
 | `ids` | 任意 | 神器・Mob・Objectの4桁IDなど、検索に使う識別子 |
 | `related` | 任意 | 関連する契約・領域文書への参照 |
@@ -60,7 +60,9 @@ related:
 
 ノートを変更したら、commit前とPR作成前に `python3 scripts/knowledge/check.py <作業コピー>` を実行する。公開前は `--base origin/<既定ブランチ>` を付けて、そのブランチの差分全体を対象にする。
 
-検査するのはヘッダーの形式と必須キー、`title` と本文見出しの一致、`paths`・`related`・本文リンクの参照先、ノートの置き場所とファイル名、保護対象の変更である。根拠の妥当性、適用条件の説明、実機の挙動は検査しない。検査の成功を内容の正しさと扱わない。
+検査するのはヘッダーの形式と必須キー、`title` と本文見出しの一致、`area` と置き場所の一致、同じ作業コピー内での `title` の重複、`paths`・`related`・本文リンクの参照先、ノートの置き場所とファイル名、保護対象の変更である。`--base` のrefを解決できない場合は、差分なしと区別して終了コード2で止まる。
+
+根拠の妥当性、適用条件の説明、同じ判断を別の書き方で重複させていないか、実機の挙動は検査しない。重複は `title` が一致する場合しか機械的に分からないため、節をノートへ移したときは元の記述を消したかを差分で確認する。検査の成功を内容の正しさと扱わない。
 
 ## 既存文書からの移行
 
@@ -80,5 +82,7 @@ related:
 | --- | --- |
 | DevSpace | `AGENTS.md`、`CLAUDE.md`、`docs/knowledge-maintenance.md`、`docs/knowledge-notes.md`、`scripts/knowledge/`、`tests/knowledge.py` |
 | Asset・TheSkyBlessing | `AGENTS.md`、`docs/knowledge/README.md`、`.github/workflows/auto-merge-docs-tests.yml`、`.github/tests/auto-merge-docs-tests.test.cjs` |
+
+保護するのはナレッジ運用の仕組み自体、つまり参照経路、採用・配置規則、検査、自動マージ条件である。全セッションの必読でも、[用語と表記](terminology.md)・[共通イディオム](mcfunction-idioms.md)・[Issue・PR本文の書き方](issue-pr-descriptions.md)・[開発用スクリプトの作成と保存](script-development.md) のような技術文書は仕組みを変えないため、保護対象に含めず逐次反映を続ける。保護対象を増減するときは、この表、`scripts/knowledge/notes.py` の一覧、両子repoの `.github/workflows/auto-merge-docs-tests.yml` を同時に更新する。
 
 個別ノートの追加・訂正・削除と、そのヘッダーの更新は承認待ちにしない。既存の公開経路と上記の検査に従う。保護対象の内容を普通のノートへ移して人のマージを回避しない。Asset・TheSkyBlessingの `docs/`・`tests/` の自動マージは、この保護対象を含むPRを対象から外す。判定は各repoの `.github/workflows/auto-merge-docs-tests.yml` にあり、この表と同じ一覧を持つ。
