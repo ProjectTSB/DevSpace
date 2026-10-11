@@ -14,6 +14,9 @@ from pathlib import Path
 import notes
 
 
+UNREADABLE = '開けないか、UTF-8 として読めない'
+
+
 class OutsideWorkcopy(Exception):
     """A requested path that does not belong to the working copy."""
 
@@ -36,7 +39,19 @@ def main(argv=None):
     if problem:
         print(problem, file=sys.stderr)
         return 2
+    try:
+        return inspect(root, arguments)
+    except notes.GitFailure as failure:
+        print(f'gitで変更やファイルの一覧を読めない: {failure}', file=sys.stderr)
+        return 2
+    except OSError as error:
+        # A traceback would exit with 1, the status that means findings.
+        print(f'ファイルやディレクトリを読めず、検査を続けられない: {error}', file=sys.stderr)
+        return 2
 
+
+def inspect(root, arguments):
+    """Report the findings for the chosen files and return the exit status."""
     try:
         targets, changes, removed = collect(root, arguments)
     except OutsideWorkcopy as outside:
@@ -51,10 +66,10 @@ def main(argv=None):
         return 2
     knowledge = [path for path in targets if path.startswith(notes.KNOWLEDGE_DIR + '/')
                  and path.endswith('.md') and path != notes.ENTRY_DOC]
-    findings, unreadable = {}, []
+    findings = {}
     for path in knowledge:
         document = read(root, path)
-        messages = notes.validate(document) if document else ['UTF-8 として読めない']
+        messages = notes.validate(document) if document else [UNREADABLE]
         if messages:
             findings[path] = messages
     for path, messages in duplicate_titles(root, knowledge).items():
@@ -62,10 +77,11 @@ def main(argv=None):
     entry_messages, reported = entry_findings(root, targets, removed, arguments.all)
     for path, messages in entry_messages.items():
         findings.setdefault(path, []).extend(messages)
-    for path, messages in stale_references(root, removed, unreadable, reported, knowledge).items():
+    unread = {path for path, messages in findings.items() if UNREADABLE in messages}
+    for path, messages in stale_references(root, removed, reported, knowledge, unread).items():
         findings.setdefault(path, []).extend(messages)
 
-    report(root, changes, targets, removed, knowledge, unreadable, sorted(findings.items()))
+    report(root, changes, targets, removed, knowledge, sorted(findings.items()))
     return 1 if findings else 0
 
 
@@ -88,11 +104,16 @@ def entry_findings(root, targets, removed, everything):
     """Check the entry's links and guide table; also name the links already reported."""
     touched = [path for path in targets + removed
                if path == notes.ENTRY_DOC or notes.is_area_document(path)]
-    if not (everything or touched) or not (root / notes.ENTRY_DOC).is_file():
+    if not (everything or touched):
+        return {}, set()
+    if not (root / notes.ENTRY_DOC).is_file():
+        # Without the entry the area documents left behind are not routed from anywhere.
+        if any(notes.is_area_document(path) for path in notes.knowledge_paths(root)):
+            return {notes.ENTRY_DOC: ['入口がなく、領域文書を案内表から辿れない']}, set()
         return {}, set()
     entry = read(root, notes.ENTRY_DOC)
     if entry is None:
-        return {notes.ENTRY_DOC: ['UTF-8 として読めない']}, set()
+        return {notes.ENTRY_DOC: [UNREADABLE]}, set()
     messages = list(notes.check_links(entry))
     messages.extend(f'領域文書が入口の案内表にない: `{path}`'
                     for path in notes.unrouted_area_documents(root))
@@ -100,20 +121,22 @@ def entry_findings(root, targets, removed, everything):
     return ({notes.ENTRY_DOC: messages} if messages else {}), reported
 
 
-def stale_references(root, removed, unreadable, reported, validated):
-    """Find Markdown in the working copy that still points at a deleted or renamed path."""
+def stale_references(root, removed, reported, validated, unread):
+    """Find `.md` files in the working copy that still point at a deleted or renamed path."""
     if not removed:
         return {}
     gone = set(removed)
     listing = notes.git_output(root, '-c', 'core.quotePath=false', 'ls-files', '--cached',
-                               '--others', '--exclude-standard', '--', '*.md')
+                               '--others', '--exclude-standard', '--', '*.md', required=True)
     found = {}
     for path in sorted({line for line in listing.split('\n') if line}):
         if path in gone or not (root / path).is_file():
             continue
         document = read(root, path)
         if document is None:
-            unreadable.append(path)
+            # Passing over an unread file would let the check succeed without looking at it.
+            if path not in unread:
+                found[path] = [UNREADABLE + 'ため、削除・移動したファイルへの参照を確認できない']
             continue
         for link, target in notes.link_targets(document):
             # A directory reference breaks once no file is left under it; Git drops
@@ -136,7 +159,7 @@ def missing(path):
 def read(root, path):
     try:
         return notes.Document(root, path)
-    except UnicodeDecodeError:
+    except (UnicodeDecodeError, OSError):
         return None
 
 
@@ -152,7 +175,7 @@ def collect(root, arguments):
             raise LookupError(arguments.base)
         # Unquoted paths keep non-ASCII names readable, like the status listing.
         diff = notes.git_output(root, '-c', 'core.quotePath=false', 'diff', '--name-status',
-                                f'{arguments.base}...HEAD')
+                                f'{arguments.base}...HEAD', required=True)
         for line in diff.split('\n'):
             fields = line.split('\t')
             if len(fields) < 2:
@@ -195,7 +218,7 @@ def relative(root, path):
 def changed(root):
     """List working-tree and staged changes, and the paths those changes removed."""
     status = notes.git_output(root, '-c', 'core.quotePath=false', 'status', '--porcelain=v1',
-                              '--untracked-files=all', strip=False)
+                              '--untracked-files=all', strip=False, required=True)
     paths, removed = [], []
     for line in status.split('\n'):
         if len(line) < 4:
@@ -208,15 +231,12 @@ def changed(root):
     return paths, removed
 
 
-def report(root, changes, targets, removed, knowledge, unreadable, findings):
+def report(root, changes, targets, removed, knowledge, findings):
     print(f'# ノート検査: {notes.repository_name(root)}（ブランチ {notes.branch_name(root)}）')
     print()
     print(f'- 対象ファイル {len(targets)}件、検査したナレッジ文書 {len(knowledge)}件')
     if removed:
-        print(f'- 削除・移動したファイル {len(removed)}件。作業コピー内のMarkdownから参照が残っていないか確認した')
-    if unreadable:
-        print('- UTF-8 として読めず、参照を確認できなかったファイル: '
-              + ', '.join(f'`{path}`' for path in unreadable))
+        print(f'- 削除・移動したファイル {len(removed)}件。作業コピー内の .md ファイルから参照が残っていないか確認した')
     print()
 
     hits = notes.protected_hits(root, sorted(set(changes + removed)))

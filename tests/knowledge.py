@@ -395,6 +395,11 @@ related:
         self.assertEqual(code, 1)
         self.assertNotIn('案内表にない', output)
         self.assertIn('本文のリンク先が作業コピーにない: absent.md', output)
+        # The guide is checked from file names, so an area document that is not UTF-8
+        # still has to be routed.
+        (self.copy.root / 'docs/knowledge/item.md').write_bytes('# 道具\n'.encode('shift_jis'))
+        _, output = self.run_check('docs/knowledge/README.md')
+        self.assertIn('領域文書が入口の案内表にない: `docs/knowledge/item.md`', output)
 
     def test_changing_an_area_document_also_checks_the_entry_links(self):
         self.copy.write('docs/knowledge/mob.md',
@@ -451,14 +456,94 @@ paths:
         self.assertNotIn('削除・移動', output)
         self.assertNotIn('## 保護対象の変更', output)
 
-    def test_unreadable_documents_are_named_instead_of_failing(self):
+    def test_unreadable_documents_fail_the_removal_scan(self):
+        self.copy.note('docs/knowledge/notes/motion/gone.md')
+        self.copy.commit('ノート')
+        (self.copy.root / 'legacy.md').write_bytes('# 旧文書\n'.encode('shift_jis'))
+        # Without a removal the file outside the knowledge is not read at all.
+        code, _ = self.run_check()
+        self.assertEqual(code, 0)
+        (self.copy.root / 'docs/knowledge/notes/motion/gone.md').unlink()
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('- `legacy.md`', output)
+        self.assertIn('削除・移動したファイルへの参照を確認できない', output)
+        self.assertNotIn('## 指摘なし', output)
+
+    def test_an_unreadable_knowledge_document_is_reported_once_with_a_removal(self):
         self.copy.note('docs/knowledge/notes/motion/gone.md')
         self.copy.commit('ノート')
         (self.copy.root / 'docs/knowledge/notes/motion/gone.md').unlink()
-        (self.copy.root / 'legacy.md').write_bytes('# 旧文書\n'.encode('shift_jis'))
+        (self.copy.root / 'docs/knowledge/notes/motion/old.md').write_bytes(
+            '---\ntitle: 旧\n---\n'.encode('shift_jis'))
         code, output = self.run_check()
-        self.assertEqual(code, 0)
-        self.assertIn('参照を確認できなかったファイル: `legacy.md`', output)
+        self.assertEqual(code, 1)
+        self.assertEqual(output.count('UTF-8 として読めない'), 1)
+        self.assertIn('合計 1件', output)
+
+    def test_an_unreadable_entry_is_reported_once_with_a_removal(self):
+        self.copy.write('docs/knowledge/mob.md',
+                        NOTE.format(title='Mob', description='Mobを変更するときに読む', area=''))
+        self.copy.commit('領域文書')
+        (self.copy.root / 'docs/knowledge/README.md').write_bytes('# 入口\n'.encode('shift_jis'))
+        (self.copy.root / 'docs/knowledge/mob.md').unlink()
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('合計 1件', output)
+
+    def test_a_missing_entry_is_a_finding_while_area_documents_remain(self):
+        self.copy.write('docs/knowledge/mob.md',
+                        NOTE.format(title='Mob', description='Mobを変更するときに読む', area=''))
+        self.copy.write('docs/knowledge/README.md', '# 入口\n\n|目的|文書|\n|---|---|\n|Mob|[Mob](mob.md)|\n')
+        self.copy.commit('入口と領域文書')
+        (self.copy.root / 'docs/knowledge/README.md').unlink()
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('入口がなく、領域文書を案内表から辿れない', output)
+        self.copy.commit('入口を削除')
+        code, output = self.run_check('--all')
+        self.assertEqual(code, 1)
+        self.assertIn('入口がなく、領域文書を案内表から辿れない', output)
+
+    @unittest.skipIf(os.geteuid() == 0, 'root can list a directory without permission')
+    def test_an_unreadable_directory_stops_the_check(self):
+        self.copy.note('docs/knowledge/notes/motion/gone.md')
+        self.copy.write('guides/ref.md', '# 参照\n\n[旧](../docs/knowledge/notes/motion/gone.md)\n')
+        self.copy.commit('ノートと参照元')
+        (self.copy.root / 'docs/knowledge/notes/motion/gone.md').unlink()
+        guides = self.copy.root / 'guides'
+        guides.chmod(0)
+        try:
+            code, output = self.run_check()
+        finally:
+            guides.chmod(0o755)
+        self.assertEqual(code, 2)
+        self.assertIn('検査を続けられない', output)
+
+    def test_a_failing_git_query_stops_instead_of_finding_nothing(self):
+        self.copy.note('docs/knowledge/notes/motion/stop.md')
+        # A truncated index still resolves the work tree but fails the status query.
+        (self.copy.root / '.git/index').write_bytes(b'DIRC')
+        code, output = self.run_check()
+        self.assertEqual(code, 2)
+        self.assertIn('gitで変更やファイルの一覧を読めない', output)
+        self.assertNotIn('## 指摘なし', output)
+
+    @unittest.skipIf(os.geteuid() == 0, 'root can open a file without read permission')
+    def test_a_file_that_cannot_be_opened_is_a_finding(self):
+        self.copy.note('docs/knowledge/notes/motion/gone.md')
+        self.copy.commit('ノート')
+        (self.copy.root / 'docs/knowledge/notes/motion/gone.md').unlink()
+        locked = self.copy.root / 'locked.md'
+        locked.write_text('# 開けない\n', encoding='utf-8')
+        locked.chmod(0)
+        try:
+            code, output = self.run_check()
+        finally:
+            locked.chmod(0o644)
+        self.assertEqual(code, 1)
+        self.assertIn('- `locked.md`', output)
+        self.assertIn('開けないか、UTF-8 として読めない', output)
 
     def test_unreadable_knowledge_documents_are_findings_in_every_mode(self):
         self.copy.note('docs/knowledge/notes/motion/stop.md')

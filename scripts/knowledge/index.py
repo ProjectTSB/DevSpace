@@ -34,7 +34,7 @@ def main(argv=None):
     readable = {document.relative for document in notes.documents(root)}
     for path in notes.knowledge_paths(root):
         if path not in readable:
-            print(f'UTF-8 として読めないためINDEXから除いた: {path}', file=sys.stderr)
+            print(f'開けないか、UTF-8 として読めないためINDEXから除いた: {path}', file=sys.stderr)
     if arguments.area:
         areas = sorted({document.area for document in found if document.is_note})
         if arguments.area not in areas:

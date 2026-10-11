@@ -283,9 +283,8 @@ def unrouted_area_documents(root):
             if line.lstrip().startswith('|')] if entry.is_file() else []
     linked = {posixpath.normpath(link.split('#', 1)[0])
               for row in rows for link in MARKDOWN_LINK.findall(row)}
-    return [document.relative for document in documents(root)
-            if is_area_document(document.relative)
-            and document.relative[len(KNOWLEDGE_DIR) + 1:] not in linked]
+    return [relative for relative in knowledge_paths(root)
+            if is_area_document(relative) and relative[len(KNOWLEDGE_DIR) + 1:] not in linked]
 
 
 def knowledge_paths(root):
@@ -299,13 +298,14 @@ def knowledge_paths(root):
 def documents(root, notes_only=False):
     """Collect the readable knowledge documents of one working copy in a stable order.
 
-    A document that is not UTF-8 is left out here; `check.py` reports it by path.
+    A document that cannot be opened or is not UTF-8 is left out here; callers that need
+    every document name it by path.
     """
     found = []
     for relative in knowledge_paths(root):
         try:
             document = Document(root, relative)
-        except UnicodeDecodeError:
+        except (UnicodeDecodeError, OSError):
             continue
         if notes_only and not document.is_note:
             continue
@@ -328,14 +328,26 @@ def protected_hits(root, relatives):
                    for rule in rules)]
 
 
-def git_output(root, *arguments, strip=True):
-    """Query Git read-only; `strip=False` keeps the leading status characters."""
+class GitFailure(Exception):
+    """A Git query that had to answer, such as the list of changes, failed."""
+
+
+def git_output(root, *arguments, strip=True, required=False):
+    """Query Git read-only; `strip=False` keeps the leading status characters.
+
+    A failed query gives an empty string, or raises GitFailure when `required` is set:
+    for a list of changes or files, an empty answer would read as "nothing to check".
+    """
     try:
         result = subprocess.run(('git', '-C', str(root)) + arguments,
                                 capture_output=True, text=True, check=False)
-    except OSError:
+    except OSError as error:
+        if required:
+            raise GitFailure(str(error)) from error
         return ''
     if result.returncode != 0:
+        if required:
+            raise GitFailure(result.stderr.strip().split('\n')[0])
         return ''
     return result.stdout.strip() if strip else result.stdout
 
