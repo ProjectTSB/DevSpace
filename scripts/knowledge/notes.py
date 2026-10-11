@@ -1,4 +1,5 @@
 """Read knowledge note headers and resolve per-working-copy path rules."""
+import posixpath
 import re
 import subprocess
 from pathlib import Path
@@ -38,6 +39,10 @@ NOTE_NAME = re.compile(r'^[a-z0-9]+(?:-[a-z0-9]+)*\.md$')
 AREA_SEGMENT = re.compile(r'^[a-z0-9]+(?:-[a-z0-9]+)*$')
 MARKDOWN_LINK = re.compile(r'\[[^\]]*\]\(([^)\s]+)\)')
 CROSS_REPO_REF = re.compile(r'^(%s):(.+)$' % '|'.join(KNOWN_REPOS))
+# `ids` name the category with the number, because the same number exists in several
+# categories (for example object 1068 and artifact 1068).
+TYPED_ID = re.compile(r'^([a-z][a-z0-9_]*):([0-9]+)$')
+ASSET_FUNCTIONS = 'Asset/data/asset/functions'
 
 
 class Document:
@@ -46,7 +51,7 @@ class Document:
     def __init__(self, root, relative):
         self.root = Path(root)
         self.relative = relative.replace('\\', '/')
-        self.text = (self.root / self.relative).read_text(encoding='utf-8').replace('\r\n', '\n')
+        self.text = (self.root / self.relative).read_text(encoding='utf-8-sig').replace('\r\n', '\n')
         self.header, self.header_errors, self.body = parse_header(self.text)
         self.has_header = not self.header_errors or bool(self.header)
 
@@ -159,6 +164,8 @@ def header_findings(document):
     if len(header.get('description', '')) > DESCRIPTION_LIMIT:
         yield (f'description が長い: {len(header["description"])}文字（上限 {DESCRIPTION_LIMIT}）'
                '。どの作業で読むかを一文で書き、詳細は本文へ置く')
+    if header.get('area') and not document.is_note:
+        yield 'area はノートにだけ書く。領域文書は入口の案内表で選ぶ'
     if header.get('area') and not AREA_SEGMENT.match(header['area'].split('/')[0]):
         yield 'area は英小文字・数字・ハイフンで書く'
     if document.is_note and header.get('area'):
@@ -169,6 +176,7 @@ def header_findings(document):
     if header.get('title') and heading != header['title']:
         yield f'本文の見出しがヘッダーと違う: `# {heading}` と title `{header["title"]}`'
     yield from check_paths(document)
+    yield from check_ids(document)
     yield from check_references(document)
 
 
@@ -194,6 +202,23 @@ def check_paths(document):
             yield f'paths の対象が作業コピーにない: {value}'
 
 
+def check_ids(document):
+    """Require `<category>:<ID>`; where the Asset datapack exists, the ID must exist too."""
+    functions = document.root / ASSET_FUNCTIONS
+    for value in document.header.get('ids', []):
+        typed = TYPED_ID.match(value)
+        if not typed:
+            yield f'ids は `<種別>:<ID>` で書く（例: `object:1068`）: {value}'
+            continue
+        if not functions.is_dir():
+            continue
+        category = functions / typed.group(1)
+        if not category.is_dir():
+            yield f'ids の種別が `{ASSET_FUNCTIONS}/` にない: {value}'
+        elif not any(child.name.split('.', 1)[0] == typed.group(2) for child in category.iterdir()):
+            yield f'ids の対象が作業コピーにない: {value}'
+
+
 def check_references(document):
     """Resolve `related` from the repository root of the same working copy."""
     for value in document.header.get('related', []):
@@ -215,29 +240,74 @@ def check_references(document):
 
 def check_links(document):
     """Resolve body links from the document, like a reader following them."""
-    directory = (document.root / document.relative).parent
+    broken = broken_links(document)
     for link in MARKDOWN_LINK.findall(document.body):
-        if link.startswith(('http://', 'https://', 'mailto:', '#')):
-            continue
         if link.startswith('/'):
             yield f'本文のリンクに絶対パスを使っている: {link}'
-            continue
-        if not (directory / link.split('#', 1)[0]).exists():
+        elif link in broken:
             yield f'本文のリンク先が作業コピーにない: {link}'
 
 
-def documents(root, area=None, notes_only=False):
-    """Collect the knowledge documents of one working copy in a stable order."""
+def broken_links(document):
+    """Name the relative body links whose target is not in the working copy."""
+    directory = (document.root / document.relative).parent
+    return {link for link in MARKDOWN_LINK.findall(document.body)
+            if not link.startswith(('http://', 'https://', 'mailto:', '#', '/'))
+            and not (directory / link.split('#', 1)[0]).exists()}
+
+
+def link_targets(document):
+    """Name each body link, `related` and `paths` value with the repo path it points to."""
+    directory = posixpath.dirname(document.relative)
+    for link in MARKDOWN_LINK.findall(document.body):
+        if link.startswith(('http://', 'https://', 'mailto:', '#', '/')):
+            continue
+        target = posixpath.normpath(posixpath.join(directory, link.split('#', 1)[0]))
+        if not target.startswith('../'):
+            yield link, target
+    for value in document.header.get('related', []) + document.header.get('paths', []):
+        target = value.split('#', 1)[0]
+        if target and not CROSS_REPO_REF.match(value) and '://' not in value:
+            yield value, posixpath.normpath(target)
+
+
+def is_area_document(relative):
+    return (relative.startswith(KNOWLEDGE_DIR + '/') and relative.endswith('.md')
+            and relative != ENTRY_DOC and '/' not in relative[len(KNOWLEDGE_DIR) + 1:])
+
+
+def unrouted_area_documents(root):
+    """List area documents that no row of the entry's guide table links to."""
+    entry = Path(root) / ENTRY_DOC
+    rows = [line for line in entry.read_text(encoding='utf-8-sig').split('\n')
+            if line.lstrip().startswith('|')] if entry.is_file() else []
+    linked = {posixpath.normpath(link.split('#', 1)[0])
+              for row in rows for link in MARKDOWN_LINK.findall(row)}
+    return [document.relative for document in documents(root)
+            if is_area_document(document.relative)
+            and document.relative[len(KNOWLEDGE_DIR) + 1:] not in linked]
+
+
+def knowledge_paths(root):
+    """Name the knowledge documents of one working copy, the entry excluded."""
     base = Path(root) / KNOWLEDGE_DIR
+    found = (path.relative_to(root).as_posix() for path in sorted(base.rglob('*.md'))
+             if path.is_file())
+    return [relative for relative in found if relative != ENTRY_DOC]
+
+
+def documents(root, notes_only=False):
+    """Collect the readable knowledge documents of one working copy in a stable order.
+
+    A document that is not UTF-8 is left out here; `check.py` reports it by path.
+    """
     found = []
-    for path in sorted(base.rglob('*.md')):
-        relative = path.relative_to(root).as_posix()
-        if relative == ENTRY_DOC:
+    for relative in knowledge_paths(root):
+        try:
+            document = Document(root, relative)
+        except UnicodeDecodeError:
             continue
-        document = Document(root, relative)
         if notes_only and not document.is_note:
-            continue
-        if area and document.area != area:
             continue
         found.append(document)
     return found
@@ -268,6 +338,38 @@ def git_output(root, *arguments, strip=True):
     if result.returncode != 0:
         return ''
     return result.stdout.strip() if strip else result.stdout
+
+
+def git_problem(root):
+    """Explain why git does not read this working copy as itself, or return None."""
+    root = Path(root).resolve()
+    top = git_output(root, 'rev-parse', '--show-toplevel')
+    if not top:
+        return (f'{root} をGitの作業コピーとして読めない。worktreeを作った環境か、'
+                'GIT_DIR・GIT_WORK_TREE の指定を確認する')
+    if Path(top).resolve() != root:
+        return (f'git が別の作業ツリー {top} を指している。repo直下を渡したか、'
+                'GIT_DIR・GIT_WORK_TREE の指定を確認する')
+    # GIT_DIR alone can name another repository while the work tree still resolves here.
+    # A `.git` link written in another environment cannot be compared, so it is skipped.
+    own = own_git_dir(root)
+    actual = git_output(root, 'rev-parse', '--absolute-git-dir')
+    if own and own.exists() and actual and Path(actual).resolve() != own:
+        return f'git が別のリポジトリ {actual} を読んでいる。GIT_DIR の指定を確認する'
+    return None
+
+
+def own_git_dir(root):
+    """Resolve the repository that the working copy's own `.git` names."""
+    marker = Path(root) / '.git'
+    if marker.is_dir():
+        return marker.resolve()
+    if marker.is_file():
+        text = marker.read_text(encoding='utf-8', errors='replace').strip()
+        if text.startswith('gitdir:'):
+            target = Path(text[len('gitdir:'):].strip())
+            return (target if target.is_absolute() else Path(root) / target).resolve()
+    return None
 
 
 def repository_name(root):

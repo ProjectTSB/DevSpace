@@ -16,7 +16,7 @@ import notes
 def main(argv=None):
     parser = argparse.ArgumentParser(description='対象作業コピーのノートからINDEXを生成する')
     parser.add_argument('workcopy', help='対象repoの作業コピー（repo直下）')
-    parser.add_argument('--area', help='この領域のノートだけを出力する')
+    parser.add_argument('--area', help='ノートをこの領域に絞る。領域文書は残す')
     parser.add_argument('--notes-only', action='store_true', help='領域文書を省く')
     arguments = parser.parse_args(argv)
 
@@ -27,11 +27,22 @@ def main(argv=None):
         print(f'{root} に {notes.KNOWLEDGE_DIR}/ がない: {hint}', file=sys.stderr)
         return 2
 
-    found = notes.documents(root, area=arguments.area, notes_only=arguments.notes_only)
-    if arguments.area and not found:
-        areas = sorted({document.area for document in notes.documents(root)})
-        print(f'{arguments.area} の領域はない。ある領域: ' + '、'.join(areas), file=sys.stderr)
-        return 2
+    problem = notes.git_problem(root)
+    if problem:
+        print(f'{problem}。repo名とブランチ名は正しく表示されない', file=sys.stderr)
+    found = notes.documents(root, notes_only=arguments.notes_only)
+    readable = {document.relative for document in notes.documents(root)}
+    for path in notes.knowledge_paths(root):
+        if path not in readable:
+            print(f'UTF-8 として読めないためINDEXから除いた: {path}', file=sys.stderr)
+    if arguments.area:
+        areas = sorted({document.area for document in found if document.is_note})
+        if arguments.area not in areas:
+            print(f'{arguments.area} の領域はない。ある領域: ' + '、'.join(areas), file=sys.stderr)
+            return 2
+        # Area documents stay listed: their guidance is not split by note area.
+        found = [document for document in found
+                 if not document.is_note or document.area == arguments.area]
     print('\n'.join(render(root, found, arguments)))
     return 0
 
@@ -43,8 +54,8 @@ def render(root, found, arguments):
     lines.append(f'- 作業コピー: `{root}`（ブランチ {notes.branch_name(root)}）')
     lines.append(f'- 領域文書 {len(found) - note_count}件、ノート {note_count}件')
     if arguments.area:
-        lines.append(f'- 領域の絞り込み: {arguments.area}')
-    lines.append(f'- 入口と更新規約: `{notes.ENTRY_DOC}`')
+        lines.append(f'- ノートの絞り込み: {arguments.area}（領域文書はすべて残す）')
+    lines.append(f'- 入口と領域文書の案内表: `{notes.ENTRY_DOC}`')
     lines.append('- 該当が無いときは探索範囲を広げ、コードと提供側の契約から知識の有無を判断する')
     lines.append('')
 
