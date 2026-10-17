@@ -194,6 +194,12 @@ git -C Asset worktree add -b feature-name ../.worktrees/feature-name/Asset
 
 共通規約・ナレッジ参照・更新方針はDevSpaceで一元管理します。TheSkyBlessingとAssetの `AGENTS.md` は、子repoを開始位置とする通常のAI利用を推奨せず、DevSpaceへ案内するために残します。子repoの `docs/knowledge/` にはコード固有の構造・契約・実例を置き、コードと同じブランチで更新します。AIはDevSpaceの案内から必要な本文を読みます。並列担当にはDevSpaceの規約を引き渡し、共通ルールを子repoへ複製しません。各 `CLAUDE.md` は同じ場所の `AGENTS.md` を参照します。
 
+個別の判断は各 repo の `docs/knowledge/notes/` にノートとして置き、探すときは `python3 scripts/knowledge/index.py <作業コピー>` でそのブランチのヘッダーからINDEXを生成します。INDEXのファイルは保存しません。ノートの形式・参照経路・検査・人がマージする範囲は [ナレッジのノートとINDEX](docs/knowledge-notes.md) を参照してください。
+
+バニラの挙動を確かめるときは、`python3 scripts/minecraft/source.py 1.20.4` で Minecraft のソースとデータ生成の reports を `.cache/minecraft/1.20.4/` に生成して読みます。版移行の検討では、ほかの版も別のディレクトリに生成して比べられます。読み方と根拠の書き方は [Minecraftのソースとreports](docs/minecraft-source.md) を参照してください。
+
+CIのdatapack-linterが見ないmcfunctionの規約の一部は、`python3 scripts/datapack/check.py <作業コピー> --base origin/master` で検査できます。検査する規則はスクリプトの冒頭にあります。対象の作業コピーに `scripts/datapack/repository.py` があれば、そのrepo固有の検査も実行されます。
+
 レビューの根拠・採用状況は各 repo の `docs/knowledge/sources.md`、知識の更新と共有方法は [ナレッジの配置と更新](docs/knowledge-maintenance.md) を参照してください。子 repo の文書は各 repo 側の変更として管理します。
 
 ## 検証
@@ -204,7 +210,12 @@ git -C Asset worktree add -b feature-name ../.worktrees/feature-name/Asset
 sh tests/setup.sh
 sh tests/setup-native.sh
 sh tests/runtime.sh
+python3 tests/knowledge.py
+python3 tests/minecraft.py
+python3 tests/datapack.py
 ```
+
+`tests/knowledge.py` はINDEX生成とノート検査の回帰確認です。対象repoの作業コピーは変更しません。`tests/minecraft.py` は、ソース生成で取得するファイルの選び方と生成済みの版の再利用を、ネットワークとJavaを使わずに確かめます。`tests/datapack.py` は、mcfunctionの検査と、repo固有の検査の呼出しを一時repoで確かめます。
 
 実サーバーでの機能検証は、対象repoに保存したシナリオを共通runnerへ渡すと再実行できます。専用worldで実行し、入力・期待値・実測値・失敗と終了結果を試行ごとに保存します。Linux / DevContainer向けの手順と前提は [機能検証](docs/runtime-verification.md) を参照してください。
 
