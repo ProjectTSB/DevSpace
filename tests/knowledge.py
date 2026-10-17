@@ -677,25 +677,36 @@ paths:
         side = Path(str(self.copy.root) + '-side')
         self.stack.callback(lambda: subprocess.run(('rm', '-rf', str(side))))
         admin = self.copy.root / '.git/worktrees' / side.name
-        (side / '.git').write_text('gitdir: /home/elsewhere/.git/worktrees/side\n', encoding='utf-8')
+        # The other environment keeps the same worktree name under its own repository path.
+        (side / '.git').write_text(f'gitdir: /home/elsewhere/.git/worktrees/{side.name}\n',
+                                   encoding='utf-8')
         (side / 'docs/knowledge/notes/motion').mkdir(parents=True, exist_ok=True)
         note_path = side / 'docs/knowledge/notes/motion/stop.md'
         note_path.write_text(NOTE.format(title='停止', description='', area='motion'), encoding='utf-8')
-        saved = {key: os.environ.get(key) for key in ('GIT_DIR', 'GIT_WORK_TREE')}
-        os.environ['GIT_DIR'], os.environ['GIT_WORK_TREE'] = str(admin), str(side)
-        try:
-            output = io.StringIO()
-            with contextlib.redirect_stdout(output), contextlib.redirect_stderr(output):
-                code = check.main([str(side)])
-        finally:
-            for key, value in saved.items():
-                if value is None:
-                    os.environ.pop(key, None)
-                else:
-                    os.environ[key] = value
-        self.assertEqual(code, 1, output.getvalue())
-        self.assertIn('ブランチ side', output.getvalue())
-        self.assertIn('description が空である', output.getvalue())
+
+        def run_through(git_dir):
+            saved = {key: os.environ.get(key) for key in ('GIT_DIR', 'GIT_WORK_TREE')}
+            os.environ['GIT_DIR'], os.environ['GIT_WORK_TREE'] = str(git_dir), str(side)
+            try:
+                output = io.StringIO()
+                with contextlib.redirect_stdout(output), contextlib.redirect_stderr(output):
+                    code = check.main([str(side)])
+            finally:
+                for key, value in saved.items():
+                    if value is None:
+                        os.environ.pop(key, None)
+                    else:
+                        os.environ[key] = value
+            return code, output.getvalue()
+
+        code, output = run_through(admin)
+        self.assertEqual(code, 1, output)
+        self.assertIn('ブランチ side', output)
+        self.assertIn('description が空である', output)
+        # Naming the main repository instead of the worktree would compare another branch.
+        code, output = run_through(self.copy.root / '.git')
+        self.assertEqual(code, 2, output)
+        self.assertIn('git が別のリポジトリ', output)
 
     def test_ids_must_match_the_directory_digits(self):
         self.copy.write('Asset/data/asset/functions/mob/0392.ecual_first/tick.mcfunction', '')

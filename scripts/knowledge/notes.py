@@ -1,8 +1,12 @@
 """Read knowledge note headers and resolve per-working-copy path rules."""
 import posixpath
 import re
-import subprocess
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'lib'))
+from workcopy import (  # noqa: E402  re-exported for check.py and index.py
+    GitFailure, branch_name, git_output, git_problem, own_git_dir, repository_name)
 
 KNOWLEDGE_DIR = 'docs/knowledge'
 NOTES_DIR = 'docs/knowledge/notes'
@@ -26,6 +30,7 @@ DEVSPACE_PROTECTED = (
     'docs/knowledge-maintenance.md',
     'docs/knowledge-notes.md',
     'scripts/knowledge/',
+    'scripts/lib/workcopy.py',
     'tests/knowledge.py',
 )
 CHILD_PROTECTED = (
@@ -326,72 +331,3 @@ def protected_hits(root, relatives):
     return [path for path in relatives
             if any(path == rule or (rule.endswith('/') and path.startswith(rule))
                    for rule in rules)]
-
-
-class GitFailure(Exception):
-    """A Git query that had to answer, such as the list of changes, failed."""
-
-
-def git_output(root, *arguments, strip=True, required=False):
-    """Query Git read-only; `strip=False` keeps the leading status characters.
-
-    A failed query gives an empty string, or raises GitFailure when `required` is set:
-    for a list of changes or files, an empty answer would read as "nothing to check".
-    """
-    try:
-        result = subprocess.run(('git', '-C', str(root)) + arguments,
-                                capture_output=True, text=True, check=False)
-    except OSError as error:
-        if required:
-            raise GitFailure(str(error)) from error
-        return ''
-    if result.returncode != 0:
-        if required:
-            raise GitFailure(result.stderr.strip().split('\n')[0])
-        return ''
-    return result.stdout.strip() if strip else result.stdout
-
-
-def git_problem(root):
-    """Explain why git does not read this working copy as itself, or return None."""
-    root = Path(root).resolve()
-    top = git_output(root, 'rev-parse', '--show-toplevel')
-    if not top:
-        return (f'{root} をGitの作業コピーとして読めない。worktreeを作った環境か、'
-                'GIT_DIR・GIT_WORK_TREE の指定を確認する')
-    if Path(top).resolve() != root:
-        return (f'git が別の作業ツリー {top} を指している。repo直下を渡したか、'
-                'GIT_DIR・GIT_WORK_TREE の指定を確認する')
-    # GIT_DIR alone can name another repository while the work tree still resolves here.
-    # A `.git` link written in another environment cannot be compared, so it is skipped.
-    own = own_git_dir(root)
-    actual = git_output(root, 'rev-parse', '--absolute-git-dir')
-    if own and own.exists() and actual and Path(actual).resolve() != own:
-        return f'git が別のリポジトリ {actual} を読んでいる。GIT_DIR の指定を確認する'
-    return None
-
-
-def own_git_dir(root):
-    """Resolve the repository that the working copy's own `.git` names."""
-    marker = Path(root) / '.git'
-    if marker.is_dir():
-        return marker.resolve()
-    if marker.is_file():
-        text = marker.read_text(encoding='utf-8', errors='replace').strip()
-        if text.startswith('gitdir:'):
-            target = Path(text[len('gitdir:'):].strip())
-            return (target if target.is_absolute() else Path(root) / target).resolve()
-    return None
-
-
-def repository_name(root):
-    """Name the working copy by its origin remote, so worktrees report the repository."""
-    url = git_output(root, 'remote', 'get-url', 'origin')
-    if url:
-        return re.sub(r'\.git$', '', url.rstrip('/').rsplit('/', 1)[-1])
-    return Path(root).resolve().name
-
-
-def branch_name(root):
-    return git_output(root, 'branch', '--show-current') or git_output(
-        root, 'rev-parse', '--short', 'HEAD') or '不明'
