@@ -10,7 +10,7 @@ DevSpace は開発環境のリポジトリです。コードは次の独立し�
 | --- | --- |
 | TheSkyBlessing 本体・共通 API | `TheSkyBlessing/docs/knowledge/README.md` |
 | Asset の神器・Mob・Object 等 | `Asset/docs/knowledge/README.md` |
-| TSB-ResourcePack のテクスチャ・モデル・公開 CI | 対象作業コピーの `docs/knowledge/README.md`。文書がないブランチでは [main のナレッジ](https://github.com/ProjectTSB/TSB-ResourcePack/blob/main/docs/knowledge/README.md)。サーバーへの適用は [README のサーバーリソースパック](README.md#サーバーリソースパック) |
+| TSB-ResourcePack のテクスチャ・モデル・公開 CI | 対象作業コピーの `docs/knowledge/README.md`。文書がないブランチでは [main のナレッジ](https://github.com/ProjectTSB/TSB-ResourcePack/blob/main/docs/knowledge/README.md)。サーバーへの適用は [README のサーバーリソースパック](README.md#サーバーリソースパック)。バニラの描画・フォントの挙動は [Minecraftのソースとreports](docs/minecraft-source.md) で確かめる |
 | 環境設定・setup・起動処理 | `README.md`、`docs/rebuild-verification.md`。設計理由が必要なら `docs/development-environment-design.md` の対象節 |
 
 Asset・TheSkyBlessingのナレッジは、入口の `docs/knowledge/README.md` の案内表で領域文書と横断参照を確認し、`python3 scripts/knowledge/index.py <作業コピー>` で生成するINDEXから読むノートを選ぶ。INDEXのファイルや手書きのノート一覧は保存せず、対象ブランチのヘッダーから毎回生成する。ノートの形式、参照経路、機械的な検査、人がマージする範囲は [ナレッジのノートとINDEX](docs/knowledge-notes.md) に従う。
@@ -99,7 +99,7 @@ PRのレビュー対応では、行コメントに加えてレビュー本文・
 
 ## 共通のmcfunction規約
 
-以下は Asset／TheSkyBlessing の手書きmcfunctionに共通する。生成物や同梱ライブラリは、それぞれの生成手順・規約を先に確認する。NBT・数値・selector・移動・幾何・displayの実装やレビューでは、[共通イディオム](docs/mcfunction-idioms.md) の用途索引から該当節を確認する。見慣れない記法を保護するだけでなく、新規実装の選択肢として使い、適用条件・副作用・値域を照合する。
+以下は Asset／TheSkyBlessing の手書きmcfunctionに共通する。生成物や同梱ライブラリは、それぞれの生成手順・規約を先に確認する。NBT・数値・selector・移動・幾何・displayの実装やレビューでは、[共通イディオム](docs/mcfunction-idioms.md) の用途索引から該当節を確認する。見慣れない記法を保護するだけでなく、新規実装の選択肢として使い、適用条件・副作用・値域を照合する。共通イディオムと対象repoのナレッジで判断できないバニラの挙動は推測で決めず、[Minecraftのソースとreports](docs/minecraft-source.md) の手順で対象版の実装を確かめる。
 
 - 関数の IMP Doc（`#>`、`@public` / `@within` / `@private` / `@api` 等）は役割と既存例に合わせる。説明の粒度は上記の「コメントに残す情報を選ぶ」に従う。関数・タグ・score・storageの利用前に宣言元の公開範囲を確認し、呼出元が含まれるか照合する。参照できることを利用許可と扱わず、呼ぶためだけに可視性を広げない。
 - `#declare` は対応する IMP Doc ブロックより1段（4スペース）深くインデントする。インデントはアクセス修飾子の適用範囲を決めるため、修飾子を書くだけで適用されたと判断しない。実サーバーでの動作成功はコメント内の可視性指定の検証にはならない。
@@ -110,9 +110,10 @@ PRのレビュー対応では、行コメントに加えてレビュー本文・
 - `execute store result` が受け取るコマンド結果はintであり、保存先をdoubleにしても取得時に失った小数は戻らない。`data get ... 10000` → `store ... double 0.0001` のような倍率と逆数は、小数精度を残す固定小数点の受け渡しとして読む。相殺できる乗除やmacro固有の丸め対策として除去しない。倍率は必要な精度と中間のintの範囲に合わせる。
 - macro構文を使う関数は `*.m.mcfunction` と命名する。既存関数へmacroを追加するときも改名し、呼出元とIMP Docの関数名を更新する。`*.d.mcfunction` はdeclare記述を含む。拡張子だけで生成物・手書きを決めず、生成元と参照元を確認する。
 - 一括検査では、選んだファイルをGitの変更ファイル一覧と照合し、対象の取りこぼしを確認する。`.mcfunction` という名前のファイルも対象に含める。Pythonの `Path.suffix` ではこの名前を抽出できないため、例えば `path.name.endswith('.mcfunction')` を使う。
-- 関数の実行主体・位置（`as` / `at`）と実行順を保つ。位置・向きの連鎖はexecute幾何学による計算の場合がある。角度変換・ベクトル操作・範囲判定では既存の幾何イディオムも実装候補にし、慣れていない書き方という理由だけでscoreboard演算へ置き換えない。広域 `@e` 検索はdistance/dx等で範囲を限定する。単一対象の選択はselectorの既定の件数・順序を活かし、必要な場合にlimit/sortを指定する。条件に合う最も近いプレイヤー1人には `@p[条件]` を使い、同じ意味の `@a[条件,sort=nearest,limit=1]` を冗長に書かない。
+- 関数の実行主体・位置（`as` / `at`）と実行順を保つ。位置・向きの連鎖はexecute幾何学による計算の場合がある。角度変換・ベクトル操作・範囲判定では既存の幾何イディオムも実装候補にし、慣れていない書き方という理由だけでscoreboard演算へ置き換えない。広域 `@e` 検索は上限のある `distance` や `dx` 等で範囲を限定する。単一対象の選択はselectorの既定の件数・順序を活かし、必要な場合にlimit/sortを指定する。条件に合う最も近いプレイヤー1人には `@p[条件]` を使い、同じ意味の `@a[条件,sort=nearest,limit=1]` を冗長に書かない。
 - 生成物は生成元・手順・作用先を確認し、生成結果の手編集だけで完了扱いにしない。同梱ライブラリはライセンスと責務を尊重する。生成後は差分を確認し、冪等と確認できる処理だけ再実行する。
 - ProjectTSB Wikiは設計意図の根拠とし、旧パス・API・実行保証は現行コードと各repoの `wiki-crosscheck.md` で照合する。
+- 提出前とレビューでは `python3 scripts/datapack/check.py <作業コピー> --base origin/master` を実行する。検査する規則と規則の足し方はスクリプトの冒頭にある。指摘は提出前に直す。「repo固有の検査の指摘」は作業コピー全体が対象のため、自分の変更によらないものは直さずに報告で分ける。レビューでは、PRが `scripts/datapack/` 配下を変えていれば、その内容を読んでから実行する。確認は共通イディオムの基準で判断し、範囲を限定しない場合は理由を完了報告かPR本文に書く。CIのdatapack-linterが見ない規約の一部だけを扱うため、成功を規約全体を満たした根拠にしない。
 - レビューでは参照先、Argument/Return、IDとタグを照合する。レビュー指摘はコードとコメントのいずれも、変更範囲内の同種箇所へ適用する。CIの成功を実機のtick・damage・演出の成功と扱わない。
 
 ## 環境変更時の確認
