@@ -150,6 +150,8 @@ Minecraft 1.20.4では、表示するデータに合わせて次の三種を選�
 
 表示内容を変える入力と、位置・回転・拡大縮小を変える `transformation` は分けて選ぶ。`billboard` は視点への追従を指定する。`width`・`height` は描画を省略する判定用の箱で、当たり判定の大きさではない。種別を変えるとモデルの原点や表示変換も変わるため、同じtransformationを移すだけで同じ位置・大きさになるとは扱わない。
 
+Minecraft 1.20.4で `text_display` を召喚するときは、Passengerとして作る場合も含め、NBTに `alignment:"center"` または意図する配置を明示する。省略すると表示は既定のcenterになるが、読込時に `Display entityNot a string` がサーバーログへ出る。
+
 実例はAssetの [氷の表示](../Asset/Asset/data/asset/functions/object/2158.haruclaire_death/summon/.mcfunction)、[標識モデル](../Asset/Asset/data/asset/functions/object/1012.traffic_sign/summon/m.mcfunction)、[フォントを使った斬撃](../Asset/Asset/data/asset/functions/object/1187.dimension_slash/summon/m.mcfunction)。本体の [墓](../TheSkyBlessing/TheSkyBlessing/data/player_manager/functions/grave/build/m.mcfunction) はitem_displayで外形、text_displayで名前、interactionで操作の受付を分担する。選択基準は形状と必要な操作から決め、三種の処理負荷に未計測の順位を付けない。
 
 ### 光量と、面の向きによる陰影を分ける
