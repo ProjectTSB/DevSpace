@@ -8,3 +8,6 @@
 /.devcontainer/.env
 *.zip
 __pycache__/
+# Personal agent settings stay out of the shared repository.
+CLAUDE.local.md
+.claude/settings.local.json

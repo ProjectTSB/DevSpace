@@ -1,6 +1,6 @@
 """Generate readable Minecraft: Java Edition source and data reports for one version.
 
-    python3 scripts/minecraft/source.py <版> [--java <path>]
+    sh scripts/minecraft/source.sh <版> [--java <path>]
 
 The client jar is renamed with Mojang's official mappings and decompiled, together with
 the jar's assets and data; a version published without obfuscation is decompiled as is.
@@ -41,6 +41,9 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'lib'))
+from workcopy import utf8_console  # noqa: E402
+
 MANIFEST = 'https://piston-meta.mojang.com/mc/game/version_manifest_v2.json'
 # Raise when the steps or the output layout change, so generated versions are rebuilt.
 FORMAT = 1
@@ -72,6 +75,7 @@ def main(argv=None):
     parser.add_argument('version', help='Minecraft の版（例: 1.20.4）')
     parser.add_argument('--java', help='使う java（既定はサーバーと同じ JAVA_BIN）')
     arguments = parser.parse_args(argv)
+    utf8_console()
     root = devspace_root()
     try:
         print(prepare(arguments.version, root / '.cache', fetch, run,
@@ -92,7 +96,8 @@ def settings(root, java=None):
               'printf "%s\\n%s\\n" "${JAVA_BIN:-java}" "${ACCEPT_EULA:-false}"\n')
     try:
         result = subprocess.run(['sh', '-c', script, 'sh', str(root)], capture_output=True,
-                                text=True, env=dict(os.environ, DEVSPACE_ROOT=str(root)))
+                                encoding='utf-8', errors='replace',
+                                env=dict(os.environ, DEVSPACE_ROOT=str(root)))
     except OSError as error:
         raise Failure(f'devspace.local.conf を読めない: {error}') from error
     if result.returncode != 0:
@@ -330,7 +335,8 @@ def fetch(url):
 
 def run(command, cwd=None, capture=False):
     try:
-        result = subprocess.run(command, cwd=cwd, capture_output=capture, text=True, check=False)
+        result = subprocess.run(command, cwd=cwd, capture_output=capture, encoding='utf-8',
+                                errors='replace', check=False)
     except OSError as error:
         raise Failure(f'{command[0]} を実行できない: {error}') from error
     if result.returncode != 0:

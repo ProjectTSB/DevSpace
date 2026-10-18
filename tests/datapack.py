@@ -50,6 +50,10 @@ class Workcopy:
     def commit(self, subject):
         git(self.root, 'add', '--all')
         git(self.root, 'commit', '--quiet', '--message', subject)
+        # A commit on master stands for one already pushed, so it becomes the default base.
+        if git(self.root, 'branch', '--show-current').strip() == 'master':
+            git(self.root, 'update-ref', 'refs/remotes/origin/master', 'HEAD')
+            git(self.root, 'symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/master')
 
 
 class CheckTest(unittest.TestCase):
@@ -110,7 +114,7 @@ class CheckTest(unittest.TestCase):
         self.assertIn('`@p` で書く', output)
         code, output = self.run_check('--base', 'missing-ref')
         self.assertEqual(code, 2)
-        self.assertIn('--base を差分の基準にできない', output)
+        self.assertIn('差分の基準 missing-ref を使えない', output)
 
     def test_selectors_keep_nested_values_and_other_kinds_alone(self):
         self.copy.write(f'{FUNCTIONS}/artifact/0001.first/trigger/2.main.mcfunction', '\n'.join([
@@ -166,6 +170,14 @@ class CheckTest(unittest.TestCase):
                       '全ディメンションのentityをすべて調べる', output)
         for line in ('2行', '3行', '6行', '8行'):
             self.assertNotIn(line, output)
+        self.copy.write(f'{FUNCTIONS}/artifact/0001.first/trigger/3.main.mcfunction',
+                        'kill @e[gamemode=survival]\nkill @e[level=1..]\nkill @e[advancements={a=true}]\n'
+                        'kill @e[tag=X,sort=arbitrary,limit=1]\n')
+        output = self.run_check()[1]
+        self.assertNotIn('3.main.mcfunction`\n  - 1行', output)
+        self.assertIn('4行: `@e[tag=X,sort=arbitrary,limit=1]` は dx/dy/dz も distance の上限もなく、'
+                      '全ディメンションのentityを見つかるまで調べる', output)
+        self.assertNotIn('3.main.mcfunction`\n  - 2行', output)
 
     def test_diff_prefix_settings_do_not_hide_changed_lines(self):
         self.copy.write(f'{FUNCTIONS}/artifact/0001.first/trigger/2.main.mcfunction',
@@ -201,6 +213,60 @@ class CheckTest(unittest.TestCase):
         self.assertIn('a b.mcfunction', output)
         self.assertEqual(index.stat().st_mtime_ns, before)
 
+    def test_binary_files_and_a_non_utf8_console_do_not_break_the_check(self):
+        structure = self.copy.root / 'Asset/data/asset/structures/arena.nbt'
+        structure.parent.mkdir(parents=True)
+        structure.write_bytes(bytes(range(256)))
+        self.copy.commit('構造物')
+        # A tracked binary that changes reaches the diff unless the check narrows it.
+        structure.write_bytes(bytes(reversed(range(256))))
+        self.copy.write(f'{FUNCTIONS}/artifact/0001.first/trigger/1.trigger.mcfunction',
+                        'say trigger\n# 日本語のコメント\ntag @a[sort=nearest,limit=1] add X\n')
+        # The C locale without UTF-8 fallbacks reads and writes ASCII, as cp932 cannot hold UTF-8.
+        environment = dict(os.environ, LC_ALL='C', PYTHONUTF8='0', PYTHONCOERCECLOCALE='0',
+                           PYTHONIOENCODING='')
+        result = subprocess.run([sys.executable, str(SCRIPT), str(self.copy.root)],
+                                capture_output=True, env=environment)
+        output = result.stdout.decode('utf-8')
+        self.assertEqual(result.returncode, 1, result.stderr.decode('utf-8', 'replace'))
+        self.assertIn('3行: `@a[sort=nearest,limit=1]`', output)
+
+    def test_pathspec_modes_from_the_environment_do_not_hide_functions(self):
+        self.copy.write(f'{FUNCTIONS}/artifact/0001.first/trigger/1.trigger.mcfunction',
+                        'say trigger\ntag @a[sort=nearest,limit=1] add X\n')
+        for variable in ('GIT_LITERAL_PATHSPECS', 'GIT_GLOB_PATHSPECS'):
+            os.environ[variable] = '1'
+            try:
+                code, output = self.run_check()
+            finally:
+                os.environ.pop(variable)
+            self.assertEqual(code, 1, variable)
+            self.assertIn('`@p` で書く', output)
+
+    def test_context_options_from_the_environment_do_not_widen_the_changed_lines(self):
+        path = f'{FUNCTIONS}/artifact/0001.first/trigger/2.main.mcfunction'
+        self.copy.write(path, 'tag @a[sort=nearest,limit=1] add X\nsay a\nsay b\n')
+        self.copy.commit('既存の書き方')
+        self.copy.write(path, 'tag @a[sort=nearest,limit=1] add X\nsay a\nsay c\n')
+        os.environ['GIT_DIFF_OPTS'] = '--unified=3'
+        try:
+            code, output = self.run_check()
+        finally:
+            os.environ.pop('GIT_DIFF_OPTS')
+        self.assertEqual(code, 0, output)
+
+    def test_a_git_failure_while_reading_the_repository_check_stops(self):
+        def failing(root, *arguments, **options):
+            if arguments[:1] == ('ls-tree',):
+                raise check.GitFailure('fatal: bad object')
+            return original(root, *arguments, **options)
+        original = check.git_output
+        check.git_output = failing
+        self.addCleanup(setattr, check, 'git_output', original)
+        code, output = self.run_check()
+        self.assertEqual(code, 2)
+        self.assertIn('gitでrepo固有の検査を取り出せない', output)
+
     def test_generated_declarations_are_skipped(self):
         self.copy.write('Asset/data/minecraft/functions/declares.d.mcfunction',
                         '#> declare\n# @within **\n#declare objective X\n')
@@ -210,22 +276,55 @@ class CheckTest(unittest.TestCase):
     def repository_check(self, body):
         self.copy.write('scripts/datapack/repository.py', 'import json, sys\n' + body)
 
-    def test_the_repository_check_is_run_and_its_findings_reported(self):
-        code, output = self.run_check()
+    def publish_default_branch(self):
+        """Point origin/HEAD at the current commit, as a clone of the remote would."""
+        git(self.copy.root, 'update-ref', 'refs/remotes/origin/master', 'HEAD')
+        git(self.copy.root, 'symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/master')
+
+    def test_the_working_copy_version_runs_only_when_asked(self):
+        code, output = self.run_check('--run-working-copy')
         self.assertEqual(code, 0)
-        self.assertIn('repo固有の検査（`scripts/datapack/repository.py`）はこの作業コピーにない', output)
+        self.assertIn('repo固有の検査（`scripts/datapack/repository.py`）: この作業コピーにない', output)
         self.repository_check('print(json.dumps({"findings": {}}))\n')
         code, output = self.run_check()
         self.assertEqual(code, 0)
-        self.assertIn('repo固有の検査（`scripts/datapack/repository.py`）を実行した', output)
+        self.assertRegex(output, r': 共通祖先 `[0-9a-f]{9}` にないため実行していない')
+        code, output = self.run_check('--run-working-copy')
+        self.assertEqual(code, 0)
+        self.assertIn(': 作業コピーの版を実行した', output)
         self.assertIn('## 指摘なし', output)
         self.repository_check('assert sys.argv[2] == "--json"\n'
                               'print(json.dumps({"findings": {"give.json": ["`x` がない"]}}))\n'
                               'sys.exit(1)\n')
-        code, output = self.run_check()
+        code, output = self.run_check('--run-working-copy')
         self.assertEqual(code, 1)
         self.assertIn('## repo固有の検査の指摘\n\n- `give.json`\n  - `x` がない', output)
         self.assertNotIn('## 指摘\n', output)
+
+    def test_a_review_runs_the_merge_base_version_outside_the_working_copy(self):
+        self.repository_check('print(json.dumps({"findings": {"base": ["共通祖先の版"]}})); sys.exit(1)\n')
+        self.copy.commit('repo固有の検査')
+        self.publish_default_branch()
+        git(self.copy.root, 'checkout', '--quiet', '-b', 'pull-request')
+        marker = self.copy.root / 'ran-from-the-change'
+        # The change under review rewrites the check and adds a module that would shadow `json`.
+        self.repository_check(f'open({str(marker)!r}, "w").close()\nprint("{{}}")\n')
+        self.copy.write('scripts/datapack/json.py', f'open({str(marker)!r}, "w").close()\n')
+        self.copy.commit('検査を書き換える')
+        code, output = self.run_check()
+        self.assertEqual(code, 1, output)
+        self.assertIn('共通祖先の版', output)
+        self.assertRegex(output, r': 共通祖先 `[0-9a-f]{9}` の版を実行した')
+        self.assertFalse(marker.exists())
+
+    def test_a_check_missing_from_the_merge_base_is_not_run(self):
+        self.publish_default_branch()
+        git(self.copy.root, 'checkout', '--quiet', '-b', 'pull-request')
+        self.repository_check('print(json.dumps({"findings": {}}))\n')
+        self.copy.commit('検査を足す')
+        code, output = self.run_check()
+        self.assertEqual(code, 0)
+        self.assertRegex(output, r': 共通祖先 `[0-9a-f]{9}` にないため実行していない')
 
     def test_a_failing_repository_check_stops_instead_of_passing(self):
         for body in ('sys.exit(2)\n', 'print("not json")\n',
@@ -233,10 +332,17 @@ class CheckTest(unittest.TestCase):
                      'print(json.dumps({"findings": {"a": "abc"}})); sys.exit(1)\n',
                      'print(json.dumps({"findings": {"a": []}})); sys.exit(1)\n'):
             self.repository_check(body)
-            code, output = self.run_check()
+            code, output = self.run_check('--run-working-copy')
             self.assertEqual(code, 2, body)
             self.assertRegex(output, 'repository.py (が終了コード 2 で失敗した|の出力が取り決めの形と違う)')
             self.assertNotIn('## 指摘なし', output)
+
+    def test_without_a_default_branch_the_check_stops_instead_of_passing(self):
+        git(self.copy.root, 'update-ref', '-d', 'refs/remotes/origin/HEAD')
+        git(self.copy.root, 'update-ref', '-d', 'refs/remotes/origin/master')
+        code, output = self.run_check()
+        self.assertEqual(code, 2)
+        self.assertIn('--base <ref> を渡す', output)
 
     def test_a_declare_without_an_imp_doc_is_a_finding(self):
         self.copy.write('data/core/functions/tick.mcfunction', 'say tick\n#declare tag Flat\n')

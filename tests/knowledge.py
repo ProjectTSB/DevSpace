@@ -25,6 +25,9 @@ def load(name):
     return module
 
 
+# Windows has no geteuid, and chmod cannot make a file unreadable there.
+POSIX_PERMISSIONS = hasattr(os, 'geteuid') and os.geteuid() != 0
+
 notes = load('notes')
 index = load('index')
 check = load('check')
@@ -39,6 +42,13 @@ area: {area}
 
 根拠と適用条件を書く。
 """
+
+
+def write_link(path, text):
+    """Write a `.git` link file; Git for Windows may leave an existing one read-only."""
+    if path.exists():
+        path.chmod(0o644)
+    path.write_text(text, encoding='utf-8')
 
 
 def git(root, *arguments):
@@ -65,12 +75,27 @@ class Workcopy:
         path.write_text(text, encoding='utf-8')
         return path
 
-    def note(self, relative, title='判定の見出し', description='どの作業で読むか', area='motion'):
-        return self.write(relative, NOTE.format(title=title, description=description, area=area))
+    def note(self, relative, title='判定の見出し', description='どの作業で読むか', area='motion',
+             related=None):
+        text = NOTE.format(title=title, description=description, area=area)
+        if related:
+            text = text.replace('\n---\n', f'\nrelated:\n  - {related}\n---\n', 1)
+        return self.write(relative, text)
 
-    def commit(self, subject):
+    def area(self, name='mob.md'):
+        """Add an area document that the entry's guide table routes to."""
+        self.write(f'docs/knowledge/{name}',
+                   NOTE.format(title=name, description='この領域を変更するときに読む', area=''))
+        self.write('docs/knowledge/README.md', f'# 入口\n\n|目的|文書|\n|---|---|\n|領域|[{name}]({name})|\n')
+        return f'docs/knowledge/{name}'
+
+    def commit(self, subject, pushed=True):
         git(self.root, 'add', '--all')
         git(self.root, 'commit', '--quiet', '--message', subject)
+        # A commit on master stands for one already pushed, so it becomes the default base.
+        if pushed and git(self.root, 'branch', '--show-current').strip() == 'master':
+            git(self.root, 'update-ref', 'refs/remotes/origin/master', 'HEAD')
+            git(self.root, 'symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/master')
 
     def status(self):
         return git(self.root, 'status', '--porcelain=v1', '--untracked-files=all')
@@ -150,7 +175,8 @@ related:
         with contextlib.redirect_stdout(io.StringIO()):
             check.main([str(self.copy.root), '--all'])
         self.assertEqual(self.copy.status(), before)
-        self.assertFalse(list(self.copy.root.glob('**/INDEX*')))
+        # Git's own `.git/index` matches `INDEX*` where names ignore case, as on Windows.
+        self.assertFalse([path for path in self.copy.root.glob('**/INDEX*') if '.git' not in path.parts])
 
     def test_an_unknown_area_lists_the_existing_ones(self):
         self.copy.note('docs/knowledge/notes/motion/stop.md')
@@ -172,7 +198,7 @@ related:
     def test_an_unreadable_git_is_warned_without_stopping_the_index(self):
         self.copy.note('docs/knowledge/notes/motion/stop.md')
         (self.copy.root / '.git').rename(self.copy.root / 'git-moved')
-        (self.copy.root / '.git').write_text('gitdir: /nonexistent/worktrees/x\n', encoding='utf-8')
+        write_link(self.copy.root / '.git', 'gitdir: /nonexistent/worktrees/x\n')
         error, output = io.StringIO(), io.StringIO()
         with contextlib.redirect_stderr(error), contextlib.redirect_stdout(output):
             code = index.main([str(self.copy.root)])
@@ -294,12 +320,15 @@ related:
         self.assertNotIn('legacy.md', output)
 
     def test_base_adds_the_committed_difference(self):
-        self.copy.note('docs/knowledge/notes/motion/stop.md')
+        area = self.copy.area()
+        self.copy.commit('領域文書')
+        git(self.copy.root, 'checkout', '--quiet', '-b', 'work')
+        self.copy.note('docs/knowledge/notes/motion/stop.md', related=area)
         self.copy.commit('ノートを追加')
         git(self.copy.root, 'branch', 'origin-base', 'HEAD~1')
         code, output = self.run_check('--base', 'origin-base')
-        self.assertEqual(code, 0)
-        self.copy.note('docs/knowledge/notes/motion/stop.md', description='')
+        self.assertEqual(code, 0, output)
+        self.copy.note('docs/knowledge/notes/motion/stop.md', description='', related=area)
         self.copy.commit('ノートを壊す')
         code, output = self.run_check('--base', 'origin-base')
         self.assertEqual(code, 1)
@@ -317,7 +346,7 @@ related:
         self.copy.commit('説明のないノート')
         code, output = self.run_check('--base', 'origin/absent')
         self.assertEqual(code, 2)
-        self.assertIn('--base を差分の基準にできない', output)
+        self.assertIn('差分の基準 origin/absent を使えない', output)
 
     def test_duplicate_titles_in_one_working_copy_are_reported(self):
         self.copy.note('docs/knowledge/notes/motion/stop.md', title='同じ題')
@@ -347,6 +376,145 @@ related:
         self.assertIn('## 保護対象の変更', output)
         self.assertIn('`docs/knowledge/README.md`', output)
         self.assertIn('人のマージを待つ', output)
+
+    def publish_default_branch(self):
+        """Point origin/HEAD at the current commit, as a clone of the remote would."""
+        git(self.copy.root, 'update-ref', 'refs/remotes/origin/master', 'HEAD')
+        git(self.copy.root, 'symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/master')
+
+    def test_committed_changes_are_checked_without_naming_a_base(self):
+        self.publish_default_branch()
+        git(self.copy.root, 'checkout', '--quiet', '-b', 'work')
+        self.copy.write('docs/knowledge/notes/motion/stop.md',
+                        NOTE.format(title='停止', description='', area='motion'))
+        self.copy.commit('ノート')
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('`origin/HEAD` との共通祖先からの差分', output)
+        self.assertIn('description が空である', output)
+
+    def test_without_a_default_branch_the_check_stops_instead_of_passing(self):
+        git(self.copy.root, 'update-ref', '-d', 'refs/remotes/origin/HEAD')
+        git(self.copy.root, 'update-ref', '-d', 'refs/remotes/origin/master')
+        code, output = self.run_check()
+        self.assertEqual(code, 2)
+        self.assertIn('既定ブランチ（origin/HEAD・origin/main・origin/master）がない。--base <ref> を渡す', output)
+        # Checking every document does not depend on a base and still runs.
+        code, output = self.run_check('--all')
+        self.assertEqual(code, 0, output)
+        self.assertIn('差分の基準がないため、変更は未コミットのものだけを集めた', output)
+        git(self.copy.root, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+        code, output = self.run_check()
+        self.assertEqual(code, 0, output)
+        self.assertIn('`origin/main` との共通祖先からの差分', output)
+
+    def test_staged_changes_on_the_default_branch_are_findings(self):
+        self.copy.write('docs/knowledge/README.md', '# 入口\n\n変更した。\n')
+        self.copy.write('CLAUDE.local.md', '# 個人の設定\n')
+        # Unstaged and untracked files may belong to someone else in the same copy.
+        code, output = self.run_check()
+        self.assertEqual(code, 0, output)
+        self.assertIn('## 保護対象の変更', output)
+        git(self.copy.root, 'add', 'docs/knowledge/README.md')
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('- `docs/knowledge/README.md`\n  - 既定ブランチ master の上で変更をstage・commitしている', output)
+        self.assertNotIn('CLAUDE.local.md`\n  - 既定ブランチ', output)
+        git(self.copy.root, 'checkout', '--quiet', '-b', 'work')
+        self.assertEqual(self.run_check()[0], 0)
+
+    def test_devspace_main_takes_only_shared_knowledge_documents(self):
+        self.copy.write('docs/knowledge-maintenance.md', '# 配置\n')
+        self.copy.commit('DevSpace')
+        for path in ('docs/terminology.md', 'scripts/server.sh', 'AGENTS.md'):
+            self.copy.write(path, '変更した\n')
+        git(self.copy.root, 'add', '--all')
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('- `scripts/server.sh`\n  - 既定ブランチ master の上で共通知識の文書以外を変更している', output)
+        self.assertIn('- `AGENTS.md`\n  - 既定ブランチ master の上で保護対象を変更している', output)
+        self.assertNotIn('- `docs/terminology.md`\n  - 既定ブランチ', output)
+
+    def test_unpushed_commits_on_devspace_main_are_findings(self):
+        self.copy.write('docs/knowledge-maintenance.md', '# 配置\n')
+        self.copy.commit('DevSpace')
+        self.copy.write('docs/tool.sh', '#!/bin/sh\n')
+        self.copy.write('docs/terminology.md', '# 用語\n')
+        self.copy.commit('push前', pushed=False)
+        code, output = self.run_check()
+        self.assertEqual(code, 1, output)
+        self.assertIn('- `docs/tool.sh`\n  - 既定ブランチ master の上で共通知識の文書以外を変更している', output)
+        self.assertNotIn('- `docs/terminology.md`\n  - 既定ブランチ', output)
+
+    def test_the_devspace_table_is_compared_with_the_branch_own_lists(self):
+        self.copy.write('docs/knowledge-maintenance.md', '# 配置\n')
+        added = ('scripts/new.sh',)
+        devspace, child = notes.DEVSPACE_PROTECTED + added, notes.CHILD_PROTECTED
+        def row(name, paths):
+            return f'| {name} | ' + '、'.join(f'`{path}`' for path in paths) + ' |'
+        self.copy.write('docs/knowledge-notes.md', '\n'.join(
+            ['| repo | 保護対象 |', '| --- | --- |', row('DevSpace', devspace),
+             row('Asset・TheSkyBlessing', child)]) + '\n')
+        self.copy.write('scripts/knowledge/notes.py', f'DEVSPACE_PROTECTED = {devspace!r}\nCHILD_PROTECTED = {child!r}\n')
+        git(self.copy.root, 'checkout', '--quiet', '-b', 'work')
+        # The script running here does not list scripts/new.sh; the branch under check does.
+        self.assertNotIn('の一覧と違う', self.run_check()[1])
+
+    def test_a_move_on_devspace_main_counts_its_source(self):
+        self.copy.write('docs/knowledge-maintenance.md', '# 配置\n')
+        self.copy.write('scripts/server.sh', '#!/bin/sh\n')
+        self.copy.commit('DevSpace')
+        git(self.copy.root, 'mv', 'scripts/server.sh', 'docs/server.sh')
+        code, output = self.run_check()
+        self.assertEqual(code, 1, output)
+        self.assertIn('- `scripts/server.sh`\n  - 既定ブランチ master の上で共通知識の文書以外を変更している', output)
+
+    def test_an_untouched_workflow_is_not_asked_to_follow_the_lists(self):
+        self.copy.write('.github/workflows/auto-merge-docs-tests.yml', "const protectedPaths = ['AGENTS.md'];\n")
+        self.copy.commit('古いworkflow')
+        git(self.copy.root, 'checkout', '--quiet', '-b', 'work')
+        self.copy.note('docs/knowledge/notes/motion/stop.md', related=self.copy.area())
+        code, output = self.run_check()
+        self.assertNotIn('の一覧と違う', output)
+        self.assertIn('の一覧と違う', self.run_check('--all')[1])
+
+    def test_nested_instruction_files_are_protected_in_any_case(self):
+        for path in ('docs/knowledge/notes/CLAUDE.md', 'docs/.claude/rules/reading.md',
+                     'tests/AGENTS.md', 'docs/knowledge/readme.md', 'docs/CLAUDE.local.md'):
+            self.assertEqual(notes.protected_hits(self.copy.root, [path]), [path], path)
+        self.assertEqual(notes.protected_hits(self.copy.root, ['docs/claude-notes.md']), [])
+
+    def test_a_workflow_protecting_other_paths_is_a_finding(self):
+        def workflow(paths, names):
+            listed = ', '.join(f"'{value}'" for value in paths)
+            named = ', '.join(f"'{value}'" for value in names)
+            self.copy.write('.github/workflows/auto-merge-docs-tests.yml',
+                            f'const protectedPaths = [{listed}];\n'
+                            f'return [{named}].includes(parts.at(-1));\n')
+        git(self.copy.root, 'checkout', '--quiet', '-b', 'work')
+        workflow(notes.CHILD_PROTECTED[:-1], notes.INSTRUCTION_NAMES[:-1])
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('`protectedPaths` が DevSpace の scripts/knowledge/notes.py の一覧と違う', output)
+        self.assertIn('指示ファイルの名前の一覧 が DevSpace の scripts/knowledge/notes.py の一覧と違う', output)
+        workflow(notes.CHILD_PROTECTED, notes.INSTRUCTION_NAMES)
+        self.assertNotIn('の一覧と違う', self.run_check()[1])
+
+    def test_the_devspace_table_must_list_the_same_protected_paths(self):
+        self.copy.write('docs/knowledge-maintenance.md', '# 配置\n')
+        rows = {'DevSpace': notes.DEVSPACE_PROTECTED, 'Asset・TheSkyBlessing': notes.CHILD_PROTECTED}
+        def table(missing=None):
+            lines = ['| repo | 保護対象 |', '| --- | --- |']
+            for name, paths in rows.items():
+                kept = [path for path in paths if path != missing]
+                lines.append(f'| {name} | ' + '、'.join(f'`{path}`' for path in kept) + ' |')
+            return '\n'.join(lines) + '\n'
+        self.copy.write('docs/knowledge-notes.md', table())
+        self.assertNotIn('の一覧と違う', self.run_check()[1])
+        self.copy.write('docs/knowledge-notes.md', table(missing='scripts/lib/workcopy.py'))
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('人がマージする範囲の表の DevSpace の行が scripts/knowledge/notes.py の一覧と違う', output)
 
     def test_deleting_a_note_reports_documents_still_linking_to_it(self):
         self.copy.note('docs/knowledge/notes/motion/stop.md')
@@ -438,7 +606,7 @@ paths:
         self.assertIn('削除・移動したファイルを参照している: data/weather', output)
 
     def test_all_and_named_paths_keep_their_own_scope(self):
-        self.copy.note('docs/knowledge/notes/motion/stop.md')
+        self.copy.note('docs/knowledge/notes/motion/stop.md', related=self.copy.area())
         self.copy.note('docs/knowledge/notes/motion/gone.md', title='消す')
         self.copy.write('docs/knowledge/notes/motion/link.md', NOTE.format(
             title='参照元', description='どの作業で読むか', area='motion') + '\n[消す](gone.md)\n')
@@ -505,7 +673,7 @@ paths:
         self.assertEqual(code, 1)
         self.assertIn('入口がなく、領域文書を案内表から辿れない', output)
 
-    @unittest.skipIf(os.geteuid() == 0, 'root can list a directory without permission')
+    @unittest.skipIf(not POSIX_PERMISSIONS, 'needs POSIX permissions that bind a non-root user')
     def test_an_unreadable_directory_stops_the_check(self):
         self.copy.note('docs/knowledge/notes/motion/gone.md')
         self.copy.write('guides/ref.md', '# 参照\n\n[旧](../docs/knowledge/notes/motion/gone.md)\n')
@@ -529,7 +697,7 @@ paths:
         self.assertIn('gitで変更やファイルの一覧を読めない', output)
         self.assertNotIn('## 指摘なし', output)
 
-    @unittest.skipIf(os.geteuid() == 0, 'root can open a file without read permission')
+    @unittest.skipIf(not POSIX_PERMISSIONS, 'needs POSIX permissions that bind a non-root user')
     def test_a_file_that_cannot_be_opened_is_a_finding(self):
         self.copy.note('docs/knowledge/notes/motion/gone.md')
         self.copy.commit('ノート')
@@ -582,7 +750,9 @@ paths:
 
     def test_ids_name_their_category_and_exist_in_the_asset_datapack(self):
         self.copy.write('Asset/data/asset/functions/object/1068.icicle/hit.mcfunction', '')
-        typed = self.findings('---\ntitle: a\ndescription: b\nids:\n  - object:1068\n---\n\n# a\n\n本文。\n')
+        self.copy.area()
+        typed = self.findings('---\ntitle: a\ndescription: b\nids:\n  - object:1068\n'
+                              'related:\n  - docs/knowledge/mob.md\n---\n\n# a\n\n本文。\n')
         self.assertEqual(typed, [])
         bare = self.findings('---\ntitle: a\ndescription: b\nids:\n  - 1068\n---\n\n# a\n\n本文。\n')
         self.assertTrue(any('ids は `<種別>:<ID>` で書く' in message for message in bare))
@@ -634,7 +804,7 @@ paths:
         self.assertEqual(code, 2)
         self.assertIn('git が別の作業ツリー', output)
         broken = Path(self.stack.enter_context(tempfile.TemporaryDirectory()))
-        (broken / '.git').write_text('gitdir: /nonexistent/worktrees/x\n', encoding='utf-8')
+        write_link(broken / '.git', 'gitdir: /nonexistent/worktrees/x\n')
         (broken / 'docs/knowledge').mkdir(parents=True)
         error = io.StringIO()
         with contextlib.redirect_stderr(error), contextlib.redirect_stdout(io.StringIO()):
@@ -667,8 +837,10 @@ paths:
         self.assertIn('HEADと共通の祖先', output)
 
     def test_ids_are_checked_for_shape_outside_asset(self):
+        self.copy.area()
         self.assertEqual(self.findings(
-            '---\ntitle: a\ndescription: b\nids:\n  - mob:0392\n---\n\n# a\n\n本文。\n'), [])
+            '---\ntitle: a\ndescription: b\nids:\n  - mob:0392\nrelated:\n  - docs/knowledge/mob.md\n'
+            '---\n\n# a\n\n本文。\n'), [])
         self.assertTrue(any('ids は `<種別>:<ID>` で書く' in message for message in self.findings(
             '---\ntitle: a\ndescription: b\nids:\n  - 0392\n---\n\n# a\n\n本文。\n')))
 
@@ -678,8 +850,7 @@ paths:
         self.stack.callback(lambda: subprocess.run(('rm', '-rf', str(side))))
         admin = self.copy.root / '.git/worktrees' / side.name
         # The other environment keeps the same worktree name under its own repository path.
-        (side / '.git').write_text(f'gitdir: /home/elsewhere/.git/worktrees/{side.name}\n',
-                                   encoding='utf-8')
+        write_link(side / '.git', f'gitdir: /home/elsewhere/.git/worktrees/{side.name}\n')
         (side / 'docs/knowledge/notes/motion').mkdir(parents=True, exist_ok=True)
         note_path = side / 'docs/knowledge/notes/motion/stop.md'
         note_path.write_text(NOTE.format(title='停止', description='', area='motion'), encoding='utf-8')
@@ -708,6 +879,36 @@ paths:
         self.assertEqual(code, 2, output)
         self.assertIn('git が別のリポジトリ', output)
 
+    def test_a_non_utf8_console_still_reads_and_writes_japanese(self):
+        self.copy.note('docs/knowledge/notes/motion/stop.md')
+        # A Japanese branch name passes through git's output and the console. The C locale
+        # without UTF-8 fallbacks reads and writes ASCII, as cp932 cannot hold UTF-8; unlike
+        # Windows it also cannot open Japanese file names, so the names here stay ASCII.
+        git(self.copy.root, 'checkout', '--quiet', '-b', '作業')
+        environment = dict(os.environ, LC_ALL='C', PYTHONUTF8='0', PYTHONCOERCECLOCALE='0',
+                           PYTHONIOENCODING='')
+        for script, expected in (('check.py', 'ブランチ 作業'), ('index.py', '判定の見出し')):
+            result = subprocess.run([sys.executable, str(SCRIPTS / script), str(self.copy.root)],
+                                    capture_output=True, env=environment)
+            self.assertIn(result.returncode, (0, 1), result.stderr.decode('utf-8', 'replace'))
+            self.assertIn(expected, result.stdout.decode('utf-8'), script)
+
+    def test_notes_name_an_area_document_and_can_be_listed_from_it(self):
+        area = self.copy.area()
+        self.copy.note('docs/knowledge/notes/motion/stop.md', related=area)
+        self.copy.note('docs/knowledge/notes/motion/lost.md', title='迷子')
+        code, output = self.run_check()
+        self.assertEqual(code, 1)
+        self.assertIn('- `docs/knowledge/notes/motion/lost.md`\n  - related に関係する領域文書', output)
+        self.assertNotIn('stop.md`\n  - related', output)
+        listed = io.StringIO()
+        with contextlib.redirect_stdout(listed):
+            self.assertEqual(index.main([str(self.copy.root), '--for', 'mob.md']), 0)
+        self.assertIn('notes/motion/stop.md', listed.getvalue())
+        self.assertNotIn('notes/motion/lost.md', listed.getvalue())
+        with contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(index.main([str(self.copy.root), '--for', 'absent.md']), 2)
+
     def test_ids_must_match_the_directory_digits(self):
         self.copy.write('Asset/data/asset/functions/mob/0392.ecual_first/tick.mcfunction', '')
         short = self.findings('---\ntitle: a\ndescription: b\nids:\n  - mob:392\n---\n\n# a\n\n本文。\n')
@@ -715,8 +916,10 @@ paths:
 
     def test_byte_order_marks_and_markdown_named_directories_are_tolerated(self):
         (self.copy.root / 'docs/knowledge/notes/motion').mkdir(parents=True)
+        area = self.copy.area()
         (self.copy.root / 'docs/knowledge/notes/motion/bom.md').write_bytes(
-            NOTE.format(title='BOM', description='どの作業で読むか', area='motion').encode('utf-8-sig'))
+            NOTE.format(title='BOM', description='どの作業で読むか', area='motion')
+            .replace('\n---\n', f'\nrelated:\n  - {area}\n---\n', 1).encode('utf-8-sig'))
         (self.copy.root / 'docs/knowledge/notes/motion/folder.md').mkdir()
         code, output = self.run_check('--all')
         self.assertEqual(code, 0, output)

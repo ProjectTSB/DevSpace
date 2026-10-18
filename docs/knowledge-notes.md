@@ -8,7 +8,7 @@
 
 1. DevSpaceの `AGENTS.md`（`CLAUDE.md` は同じ本文）から、依頼内容で対象repoと作業コピーを決める。
 2. その作業コピーの `docs/knowledge/README.md` の案内表で、作業の目的に合う領域文書を選ぶ。横断参照もここで確認する。
-3. `python3 scripts/knowledge/index.py <作業コピー>` でINDEXを生成し、`description` から読むノートを選ぶ。
+3. `sh scripts/knowledge/index.sh <作業コピー>` でINDEXを生成し、`description` から読むノートを選ぶ。領域文書から入ったときは `--for <領域文書>` で、その領域文書を `related` に挙げるノートを出せる。
 4. 選んだ本文と、そこが指す依存先の契約を読む。API契約は提供側repoのナレッジと現行コードで確認する。
 5. 該当が無ければ領域を広げてINDEXを読み直し、コードと提供側の契約を確認してから知識の有無を判断する。
 
@@ -25,9 +25,9 @@
 | `area` | 任意 | ノートだけに書く。INDEXでまとめる領域名。省略すると `notes/` 配下のディレクトリ名を使う。ディレクトリに置いたノートで明示する場合は、そのディレクトリ名と揃える |
 | `paths` | 任意 | 発見に役立つ対象パス。repo直下からの相対パス |
 | `ids` | 任意 | 検索に使う識別子。`<種別>:<ID>` の形式で書く（例: `object:1068`）。種別はAssetの `Asset/data/asset/functions/` 直下のカテゴリ名（`artifact`・`effect`・`mob`・`object` など）で、IDはディレクトリ名の数字と同じ桁で書く。同じ番号が複数のカテゴリにあるため、種別を省かない |
-| `related` | 任意 | 関連する契約・領域文書への参照 |
+| `related` | ノートは必須 | 関連する契約・領域文書への参照。ノートには関係する領域文書（`docs/knowledge/<名前>.md`）を少なくとも1つ入れる。`--for` はこれで引く |
 
-`paths`・`ids`・`related` は、発見や照合に役立つノートだけに付ける。`verified_at` や主観的な `confidence` は必須項目にしない。上記以外のキーは検査で落ちる。
+`paths`・`ids` は、発見や照合に役立つノートだけに付ける。`related` はノートでは必須で、関係する領域文書を少なくとも1つ入れる。`verified_at` や主観的な `confidence` は必須項目にしない。上記以外のキーは検査で落ちる。
 
 本文には根拠、適用条件、適用外の条件、関連する契約への参照を残す。原則は一つの判断を一つのノートで扱う。ただし前提・結果・後始末を一緒に理解する必要がある契約は分断しない。機能固有の値や演出はその機能のノートへ置き、コードを言い換えただけの説明は残さない。
 
@@ -43,6 +43,7 @@ paths:
 ids:
   - mob:0392
 related:
+  - docs/knowledge/mob.md#独自移動とvanillaの移動を切り替える
   - DevSpace:docs/mcfunction-idioms.md#実行位置を移動前の値として保持する
 ---
 
@@ -66,9 +67,9 @@ related:
 
 ## 機械的な検査
 
-ノートを変更したら、commit前とPR作成前に `python3 scripts/knowledge/check.py <作業コピー>` を実行する。公開前は `--base origin/<既定ブランチ>` を付けて、そのブランチの差分全体を対象にする。
+ノートを変更したら、commit前とPR作成前に `sh scripts/knowledge/check.sh <作業コピー>` を実行する。DevSpace自身のPRをレビューするときは、PRのブランチではなくDevSpaceの既定ブランチにあるスクリプトで検査する。既定では、既定ブランチ（`origin/HEAD`）との共通祖先からの差分と未コミットの変更を対象にする。`origin/HEAD` がなければ `origin/main`、`origin/master` を基準にし、どれもなければ `--base <ref>` を求めて止まる。
 
-検査するのはヘッダーの形式と必須キー、`title` と本文見出しの一致、`area` と置き場所の一致、同じ作業コピー内での `title` の重複、`paths`・`related`・本文リンクの参照先、`ids` の形式とAssetでの対象の有無（Asset以外の作業コピーでは形式だけ）、領域文書に `area` を書いていないこと、ノートの置き場所とファイル名、保護対象の変更である。入口か領域文書を変更したときと `--all` では、入口の本文リンクと、すべての領域文書が入口の案内表の行からリンクされているかも検査する。入口がないのに領域文書が残っていれば、それも指摘する。ファイルを削除・移動したときは、作業コピー内の `.md` ファイル（Gitの無視対象を除く）の本文リンク・`related`・`paths` から、旧パスへの参照が残っていないかも検査する。この削除・移動の検査では、ディレクトリへの参照は、その下にファイルが残っていなければ切れたとみなす。パスを明示した検査では、削除・移動は扱わない。`--base` のrefを解決できないかHEADと共通の祖先がない場合と、gitで作業コピーや変更・ファイルの一覧を読めない、または `GIT_DIR`・`GIT_WORK_TREE` が別の作業ツリーやrepoを指す場合と、ディレクトリを読めず検査を続けられない場合は、差分なしと区別して終了コード2で止まる。読めないディレクトリの中の未追跡ファイルと、リンク先のないシンボリックリンクは検出しない。別の環境で作ったworktreeでは `.git` の参照先そのものは照合できないため、worktreeの名前が一致するかだけを確かめる。同じ名前のworktreeを持つ別のrepoを `GIT_DIR` が指す場合は検出しないので、報告の見出しに出るrepo名とブランチ名を確認する。
+検査するのはヘッダーの形式と必須キー、`title` と本文見出しの一致、`area` と置き場所の一致、同じ作業コピー内での `title` の重複、`paths`・`related`・本文リンクの参照先、`ids` の形式とAssetでの対象の有無（Asset以外の作業コピーでは形式だけ）、領域文書に `area` を書いていないこと、ノートの置き場所とファイル名、ノートの `related` に領域文書があるか、保護対象の変更である。既定ブランチの上でstage・commitした変更は、子repoではすべてを指摘にする。DevSpaceでは、保護対象のファイルと、共通知識の文書（`docs/` とrepo直下の `.md`）に当たらないファイルを指摘にする。保護対象の一覧（この文書の表、`scripts/knowledge/notes.py`、子repoの自動マージのworkflow）のどれかを変更したときと `--all` では、一覧の食い違いも指摘にする。入口か領域文書を変更したときと `--all` では、入口の本文リンクと、すべての領域文書が入口の案内表の行からリンクされているかも検査する。入口がないのに領域文書が残っていれば、それも指摘する。ファイルを削除・移動したときは、作業コピー内の `.md` ファイル（Gitの無視対象を除く）の本文リンク・`related`・`paths` から、旧パスへの参照が残っていないかも検査する。この削除・移動の検査では、ディレクトリへの参照は、その下にファイルが残っていなければ切れたとみなす。パスを明示した検査では、削除・移動は扱わない。差分の基準やgitの作業コピーを読めず、差分なしと区別できない場合は、終了コード2で止まる。条件は [scripts/knowledge/README.md](../scripts/knowledge/README.md) にある。読めないディレクトリの中の未追跡ファイルと、リンク先のないシンボリックリンクは検出しない。別の環境で作ったworktreeでは `.git` の参照先そのものは照合できないため、worktreeの名前が一致するかだけを確かめる。同じ名前のworktreeを持つ別のrepoを `GIT_DIR` が指す場合は検出しないので、報告の見出しに出るrepo名とブランチ名を確認する。
 
 節のアンカー、`<repo名>:<パス>` 形式の参照先、別のrepoや作業コピーからのリンクは検査しない。根拠の妥当性、適用条件の説明、ヘッダーと入口から本文の判断を見つけられるか、同じ判断を別の書き方で重複させていないか、実機の挙動も検査しない。判断の追加・変更、ノートの分割・移動、ヘッダーや案内表の変更では、これらを [判断と参照経路の変更は公開前に独立して確認する](knowledge-maintenance.md#判断と参照経路の変更は公開前に独立して確認する) で確認する。重複は `title` が一致する場合しか機械的に分からないため、節をノートへ移したときは元の記述を消したかを差分で確認する。検査の成功を内容の正しさと扱わない。
 
@@ -90,9 +91,11 @@ related:
 
 | repo | 保護対象 |
 | --- | --- |
-| DevSpace | `AGENTS.md`、`CLAUDE.md`、`docs/knowledge-maintenance.md`、`docs/knowledge-notes.md`、`scripts/knowledge/`、`scripts/lib/workcopy.py`、`tests/knowledge.py` |
+| DevSpace | `AGENTS.md`、`CLAUDE.md`、`docs/knowledge-maintenance.md`、`docs/knowledge-notes.md`、`scripts/knowledge/`、`scripts/lib/workcopy.py`、`scripts/python.sh`、`tests/knowledge.py` |
 | Asset・TheSkyBlessing | `AGENTS.md`、`docs/knowledge/README.md`、`.github/workflows/auto-merge-docs-tests.yml`、`.github/tests/auto-merge-docs-tests.test.cjs` |
 
-保護するのはナレッジ運用の仕組み自体、つまり参照経路、採用・配置規則、検査、自動マージ条件である。全セッションの必読でも、[用語と表記](terminology.md)・[共通イディオム](mcfunction-idioms.md)・[Issue・PR本文の書き方](issue-pr-descriptions.md)・[開発用スクリプトの作成と保存](script-development.md) のような技術文書は仕組みを変えないため、保護対象に含めず逐次反映を続ける。保護対象を増減するときは、この表、`scripts/knowledge/notes.py` の一覧、両子repoの `.github/workflows/auto-merge-docs-tests.yml` を同時に更新する。
+表に加えて、どの深さの `AGENTS.md`・`AGENTS.override.md`・`CLAUDE.md`・`CLAUDE.local.md` と `.claude` も、その配下を含めて保護対象にする。AIは入れ子の指示ファイルも必要に応じて読み込むため、ノートと同じ経路で入れない。名前は大文字小文字を区別せずに比べる。大文字小文字だけが違う名前は、Windows・macOSの作業コピーでは同じファイルを指すからである。
 
-個別ノートの追加・訂正・削除と、そのヘッダーの更新は承認待ちにしない。既存の公開経路と上記の検査に従う。保護対象の内容を普通のノートへ移して人のマージを回避しない。Asset・TheSkyBlessingの `docs/`・`tests/` の自動マージは、この保護対象を含むPRを対象から外す。判定は各repoの `.github/workflows/auto-merge-docs-tests.yml` にあり、この表と同じ一覧を持つ。
+保護するのはナレッジ運用の仕組み自体、つまり参照経路、採用・配置規則、検査、自動マージ条件である。全セッションの必読でも、[用語と表記](terminology.md)・[共通イディオム](mcfunction-idioms.md)・[Issue・PR本文の書き方](issue-pr-descriptions.md)・[開発用スクリプトの作成と保存](script-development.md) のような技術文書は仕組みを変えないため、保護対象に含めず逐次反映を続ける。保護対象を増減するときは、この表、`scripts/knowledge/notes.py` の一覧と指示ファイルの名前、両子repoの `.github/workflows/auto-merge-docs-tests.yml` を同時に更新する。ずれはノート検査が指摘する。子repoのworkflowとの照合はその子repoを検査したときに行うので、一覧を変えるときはDevSpaceを先にマージし、その後で両子repoを `--all` で検査する。
+
+個別ノートの追加・訂正・削除と、そのヘッダーの更新は承認待ちにしない。既存の公開経路と上記の検査に従う。保護対象の内容を普通のノートへ移して人のマージを回避しない。Asset・TheSkyBlessingの `docs/`・`tests/` の自動マージは、この保護対象を含むPRと、そのrepoへの書き込み権限がない人が作成したPRを対象から外す。判定は各repoの `.github/workflows/auto-merge-docs-tests.yml` にあり、この表と同じ一覧を持つ。

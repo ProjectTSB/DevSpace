@@ -21,7 +21,7 @@
 DevSpaceで次を実行する。`<版>` には対象の版を書く。現在の対象は [AGENTS.md](../AGENTS.md#環境変更時の確認) の版（1.20.4）である。
 
 ```sh
-python3 scripts/minecraft/source.py <版>
+sh scripts/minecraft/source.sh <版>
 ```
 
 最後に出力先のパスを表示する。初回はMojangと配布元から取得し、展開とreportsの生成に数分かかる。生成済みの版はネットワークにも接続せず、すぐに終わる。取得するファイル、固定したツールとその版、再実行時の扱いは [スクリプトの冒頭](../scripts/minecraft/source.py) にある。扱えるのは1.18以降の版で、Linux・macOS（DevContainerを含む）で実行する。

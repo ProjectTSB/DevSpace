@@ -97,11 +97,11 @@ execute store result storage example:work Remaining int 0.9999999999 run data ge
 
 ## selectorの探索範囲と最も近いプレイヤー
 
-`@e` の探索範囲を箱で絞るのは、`dx`・`dy`・`dz` のどれかか、上限のある `distance`（`distance=..5` や `distance=3`）だけである。`distance=5..` のように下限だけを書いた場合や、`x`・`y`・`z` だけを書いた場合は、調べるのが実行中のディメンションに限られるが、範囲は絞られない。これらのどれも書かなければ、読み込まれているすべてのディメンションのentityを調べる。`sort` を付けずに `limit` を付けた場合は、指定した件数が見つかった時点で探索を打ち切る。対象が近くにあると分かっているときは、上限のある `distance` か `dx` 等で範囲を限定する。同じディメンションにあるがどこにあるか分からない対象は、`distance=0..` で実行中のディメンションに限れる。ほかのディメンションのentityが外れるだけである。ディメンションをまたいで探す必要があるときだけ、どちらも付けない。根拠はMinecraft 1.20.4の `net.minecraft.commands.arguments.selector` の `EntitySelectorParser` の `getSelector`、`EntitySelector` の `findEntitiesRaw`、`options.EntitySelectorOptions` の `bootStrap` で、[デコンパイル結果](minecraft-source.md)で確認した。実機では確かめていない。
+`@e` の探索範囲を箱で絞るのは、`dx`・`dy`・`dz` のどれかか、上限のある `distance`（`distance=..5` や `distance=3`）だけである。`distance=5..` のように下限だけを書いた場合や、`x`・`y`・`z` だけを書いた場合は、調べるのが実行中のディメンションに限られるが、範囲は絞られない。これらのどれも書かなければ、読み込まれているすべてのディメンションのentityを調べる。並び順が任意（`sort` なしか `sort=arbitrary`）で `limit` を付けた場合は、指定した件数が見つかった時点で探索を打ち切る。対象が近くにあると分かっているときは、上限のある `distance` か `dx` 等で範囲を限定する。同じディメンションにあるがどこにあるか分からない対象は、`distance=0..` で実行中のディメンションに限れる。ほかのディメンションのentityが外れるだけである。ディメンションをまたいで探す必要があるときだけ、どちらも付けない。根拠はMinecraft 1.20.4の `net.minecraft.commands.arguments.selector` の `EntitySelectorParser` の `getSelector`、`EntitySelector` の `findEntitiesRaw`、`options.EntitySelectorOptions` の `bootStrap` で、[デコンパイル結果](minecraft-source.md)で確認した。実機では確かめていない。
 
 `@p` は `@a[sort=nearest,limit=1]` と同じ選択になる。どちらもプレイヤーに限り、近い順に1人を選び、生存の条件は加えない（同じく `EntitySelectorParser` の `parseSelector` と、`sort`・`limit` を解釈する `EntitySelectorOptions` の `bootStrap`。デコンパイル結果で確認し、実機では確かめていない）。条件に合う最も近いプレイヤー1人は `@p[条件]` と書く。`@e[type=player,sort=nearest,limit=1]` は、`@e` が生存しているentityだけを選ぶため、死亡中のプレイヤーを選ばない点で異なる。
 
-この節の書き方の一部は、DevSpaceの `python3 scripts/datapack/check.py <作業コピー> --base origin/master` で検査できる。検査する規則はスクリプトの冒頭にある。
+この節の書き方の一部は、DevSpaceの `sh scripts/datapack/check.sh <作業コピー>` で検査できる。検査する規則はスクリプトの冒頭にある。
 
 ## 件数を上限で打ち切る
 

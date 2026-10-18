@@ -23,7 +23,7 @@ REPOS = ('TheSkyBlessing', 'Asset', 'Asset-AnimatedJava')
 
 def save(path, value):
     tmp = path.with_suffix('.tmp')
-    tmp.write_text(json.dumps(value, ensure_ascii=False, indent=2) + '\n')
+    tmp.write_text(json.dumps(value, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     tmp.replace(path)
 
 
@@ -245,7 +245,7 @@ def main():
     parser.add_argument('scenario', type=Path)
     parser.add_argument('--retry-of', type=Path, help='previous result.json (records recovery history)')
     args = parser.parse_args()
-    scenario = json.loads(args.scenario.read_text())
+    scenario = json.loads(args.scenario.read_text(encoding='utf-8'))
     validate(scenario)
     if sys.platform != 'linux':
         raise RuntimeError('verification runner currently supports Linux / DevContainer')
@@ -277,7 +277,7 @@ def main():
     try:
         repos, accepted, java = settings()
         eula = ROOT / '.runtime/eula.txt'
-        if accepted != 'true' and (not eula.exists() or not re.search(r'^eula=true\s*$', eula.read_text(), re.M)):
+        if accepted != 'true' and (not eula.exists() or not re.search(r'^eula=true\s*$', eula.read_text(encoding='utf-8'), re.M)):
             raise RuntimeError('Minecraft EULA acceptance is required in the normal environment')
         result['repositories'] = {name: {'path': str(path), **snapshot(path)} for name, path in repos.items()}
         result['runnerFiles'] = {str(p.relative_to(ROOT)): digest(p) for p in
@@ -305,20 +305,20 @@ def main():
         pack = ROOT / '.cache/resources.zip'
         if pack.exists():
             conf += ['RESOURCEPACK_URI=' + pack.as_uri()]
-        (work / 'devspace.local.conf').write_text('\n'.join(conf) + '\n')
+        (work / 'devspace.local.conf').write_text('\n'.join(conf) + '\n', encoding='utf-8')
         props = ['server-ip=127.0.0.1', 'online-mode=false', 'enable-rcon=true',
                  f'rcon.port={rport}', f'rcon.password={password}', 'view-distance=2',
                  'simulation-distance=2', 'level-type=minecraft:flat', 'generate-structures=false',
                  'spawn-protection=0', 'sync-chunk-writes=false',
                  'generator-settings={"layers":[{"block":"minecraft:bedrock","height":1},{"block":"minecraft:dirt","height":2},{"block":"minecraft:grass_block","height":1}],"biome":"minecraft:plains"}']
-        (work / '.runtime/server.properties').write_text('\n'.join(props) + '\n')
+        (work / '.runtime/server.properties').write_text('\n'.join(props) + '\n', encoding='utf-8')
         result['runtime'] = {'world': str(work / '.runtime/world'), 'port': port,
                              'javaXmx': '4G', 'java': java, 'protocolClients': scenario.get('players', [])}
         env = {k: v for k, v in os.environ.items() if not k.startswith(('DEVSPACE_', 'RESOURCEPACK_', 'JAVA_'))
                and k not in (*keys, 'WORLD_PATH', 'SERVER_PORT', 'ACCEPT_EULA')}
         env.update(DEVSPACE_ROOT=str(work), DEVSPACE_CONFIG=str(work / 'devspace.local.conf'))
         server_log = work / 'server.log'
-        log = server_log.open('w'); handles.append(log)
+        log = server_log.open('w', encoding='utf-8'); handles.append(log)
         server = subprocess.Popen(['sh', str(ROOT / 'scripts/server.sh')], cwd=work, env=env,
                                   stdin=subprocess.PIPE, stdout=log, stderr=log, start_new_session=True)
         result['serverPid'] = server.pid
@@ -326,7 +326,7 @@ def main():
         def ready():
             if server.poll() is not None:
                 raise RuntimeError('server exited during startup; see server.log')
-            return 'Done (' in server_log.read_text(errors='replace')
+            return 'Done (' in server_log.read_text(encoding='utf-8', errors='replace')
         wait_for(ready, 180, 'server startup')
         rcon = Rcon(rport, password)
         rcon.command('tick freeze')
@@ -337,21 +337,21 @@ def main():
             deps.mkdir(exist_ok=True)
             for name in ('package.json', 'package-lock.json'):
                 shutil.copyfile(ROOT / 'scripts/verification' / name, deps / name)
-            dep_log = (work / 'dependencies.log').open('w'); handles.append(dep_log)
+            dep_log = (work / 'dependencies.log').open('w', encoding='utf-8'); handles.append(dep_log)
             subprocess.run(['npm', 'ci', '--ignore-scripts', '--no-audit', '--no-fund', '--prefix', str(deps)],
                            stdout=dep_log, stderr=dep_log, check=True, timeout=120)
             client_log = work / 'clients.log'
-            clog = client_log.open('w'); handles.append(clog)
+            clog = client_log.open('w', encoding='utf-8'); handles.append(clog)
             clients = subprocess.Popen(['node', str(ROOT / 'scripts/verification/clients.cjs'),
                         str(deps / 'node_modules/minecraft-protocol'), str(port), *scenario['players']],
                         stdout=clog, stderr=clog, start_new_session=True)
             def joined():
                 if clients.poll() is not None:
                     raise RuntimeError('clients exited; see clients.log')
-                text = client_log.read_text()
+                text = client_log.read_text(encoding='utf-8', errors='replace')
                 return all('READY ' + n in text for n in scenario['players'])
             wait_for(joined, 60, 'protocol clients login')
-        if re.search(r'Failed to load function|Parsing error|Couldn.t load tag', server_log.read_text()):
+        if re.search(r'Failed to load function|Parsing error|Couldn.t load tag', server_log.read_text(encoding='utf-8', errors='replace')):
             raise RuntimeError('datapack load error; see server.log')
         rcon = Rcon(rport, password)
         run_steps(rcon, scenario, result, result_path)
@@ -380,7 +380,7 @@ def main():
                         server.wait(timeout=10)
             result['shutdown'] = shutdown
             result['serverExitCode'] = server.returncode
-            result['allDimensionsSaved'] = 'All dimensions are saved' in (work / 'server.log').read_text(errors='replace')
+            result['allDimensionsSaved'] = 'All dimensions are saved' in (work / 'server.log').read_text(encoding='utf-8', errors='replace')
             if server.returncode != 0 or not result['allDimensionsSaved'] or 'TERM' in shutdown:
                 result['status'] = 'failed'
         if clients and clients.poll() is None:

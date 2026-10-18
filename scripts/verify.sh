@@ -1,4 +1,4 @@
 #!/bin/sh
 set -eu
 BASE=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
-exec python3 "$BASE/verification/run.py" "$@"
+exec sh "$BASE/python.sh" "$BASE/verification/run.py" "$@"

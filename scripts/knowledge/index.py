@@ -4,7 +4,10 @@ Input is the checked-out `docs/knowledge/` of the given working copy plus read-o
 Git queries for its repository and branch. Nothing is written: no INDEX file is kept,
 so the result always matches the branch that is checked out right now.
 
-    python3 scripts/knowledge/index.py <作業コピー> [--area <領域>] [--notes-only]
+    sh scripts/knowledge/index.sh <作業コピー> [--area <領域> | --for <領域文書>] [--notes-only]
+
+`--for` lists the notes whose `related` names that area document, the way to the notes
+when the area document was chosen from the entry's guide table.
 """
 import argparse
 import sys
@@ -16,9 +19,13 @@ import notes
 def main(argv=None):
     parser = argparse.ArgumentParser(description='対象作業コピーのノートからINDEXを生成する')
     parser.add_argument('workcopy', help='対象repoの作業コピー（repo直下）')
-    parser.add_argument('--area', help='ノートをこの領域に絞る。領域文書は残す')
+    narrowing = parser.add_mutually_exclusive_group()
+    narrowing.add_argument('--area', help='ノートをこの領域に絞る。領域文書は残す')
+    narrowing.add_argument('--for', dest='area_document', metavar='領域文書',
+                           help='この領域文書を related に挙げるノートに絞る（例: mob.md）')
     parser.add_argument('--notes-only', action='store_true', help='領域文書を省く')
     arguments = parser.parse_args(argv)
+    notes.utf8_console()
 
     root = Path(arguments.workcopy).resolve()
     if not (root / notes.KNOWLEDGE_DIR).is_dir():
@@ -43,6 +50,17 @@ def main(argv=None):
         # Area documents stay listed: their guidance is not split by note area.
         found = [document for document in found
                  if not document.is_note or document.area == arguments.area]
+    if arguments.area_document:
+        name = arguments.area_document.rsplit('/', 1)[-1]
+        target = f'{notes.KNOWLEDGE_DIR}/{name}'
+        if not notes.is_area_document(target) or not (root / target).is_file():
+            print(f'{arguments.area_document} は領域文書ではない。`docs/knowledge/` 直下の名前を渡す',
+                  file=sys.stderr)
+            return 2
+        arguments.area_document = target
+        found = [document for document in found
+                 if document.relative == target
+                 or (document.is_note and target in notes.related_area_documents(document))]
     print('\n'.join(render(root, found, arguments)))
     return 0
 
@@ -55,6 +73,8 @@ def render(root, found, arguments):
     lines.append(f'- 領域文書 {len(found) - note_count}件、ノート {note_count}件')
     if arguments.area:
         lines.append(f'- ノートの絞り込み: {arguments.area}（領域文書はすべて残す）')
+    if arguments.area_document:
+        lines.append(f'- ノートの絞り込み: `{arguments.area_document}` を related に挙げるもの')
     lines.append(f'- 入口と領域文書の案内表: `{notes.ENTRY_DOC}`')
     lines.append('- 該当が無いときは探索範囲を広げ、コードと提供側の契約から知識の有無を判断する')
     lines.append('')

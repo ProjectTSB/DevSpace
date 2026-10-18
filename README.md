@@ -44,13 +44,14 @@ DevSpace を clone した後、そのフォルダーで次を実行します。
 sh scripts/setup-native.sh
 ```
 
-各ツールの用途と導入コマンドが表示されます。`y` で導入、Enter または `n` でスキップ、`q` で終了します。実行できるツールはそのまま使い、Java は17以上、Python は3系を確認します。Node.js は npm も実行できることを確認します。Java の確認には `devspace.local.conf` の `JAVA_BIN` も使います。
+各ツールの用途と導入コマンドが表示されます。`y` で導入、Enter または `n` でスキップ、`q` で終了します。実行できるツールはそのまま使い、Java は17以上、Python は3.9以上を確認します。Node.js は npm も実行できることを確認します。Java の確認には `devspace.local.conf` の `JAVA_BIN` も使います。
 
 | 導入候補 | 用途 |
 | --- | --- |
 | Java 17 | Minecraft サーバー。17以上が使えれば追加導入しません。 |
 | GitHub CLI | PR・Issue の操作と GitHub 認証 |
-| Node.js と npm、Python 3 | 個人用スキルや lint などの補助処理 |
+| Node.js と npm | 個人用スキルなどの補助処理 |
+| Python 3.9 以上 | AI 開発の検査・INDEX・Minecraft のソース生成と lint。`python3` か `python` で起動できれば足ります。 |
 | ripgrep、jq | コード検索と JSON 加工 |
 | Codex CLI、Claude Code CLI | AI 開発。使うものだけ選びます。 |
 | VS Code 拡張機能 | DevContainer と同じ6候補を個別に選択。DHP は3.4.19を指定します。 |
@@ -194,11 +195,11 @@ git -C Asset worktree add -b feature-name ../.worktrees/feature-name/Asset
 
 共通規約・ナレッジ参照・更新方針はDevSpaceで一元管理します。TheSkyBlessingとAssetの `AGENTS.md` は、子repoを開始位置とする通常のAI利用を推奨せず、DevSpaceへ案内するために残します。子repoの `docs/knowledge/` にはコード固有の構造・契約・実例を置き、コードと同じブランチで更新します。AIはDevSpaceの案内から必要な本文を読みます。並列担当にはDevSpaceの規約を引き渡し、共通ルールを子repoへ複製しません。各 `CLAUDE.md` は同じ場所の `AGENTS.md` を参照します。
 
-個別の判断は各 repo の `docs/knowledge/notes/` にノートとして置き、探すときは `python3 scripts/knowledge/index.py <作業コピー>` でそのブランチのヘッダーからINDEXを生成します。INDEXのファイルは保存しません。ノートの形式・参照経路・検査・人がマージする範囲は [ナレッジのノートとINDEX](docs/knowledge-notes.md) を参照してください。
+個別の判断は各 repo の `docs/knowledge/notes/` にノートとして置き、探すときは `sh scripts/knowledge/index.sh <作業コピー>` でそのブランチのヘッダーからINDEXを生成します。INDEXのファイルは保存しません。ノートの形式・参照経路・検査・人がマージする範囲は [ナレッジのノートとINDEX](docs/knowledge-notes.md) を参照してください。
 
-バニラの挙動を確かめるときは、`python3 scripts/minecraft/source.py 1.20.4` で Minecraft のソースとデータ生成の reports を `.cache/minecraft/1.20.4/` に生成して読みます。版移行の検討では、ほかの版も別のディレクトリに生成して比べられます。読み方と根拠の書き方は [Minecraftのソースとreports](docs/minecraft-source.md) を参照してください。
+バニラの挙動を確かめるときは、`sh scripts/minecraft/source.sh 1.20.4` で Minecraft のソースとデータ生成の reports を `.cache/minecraft/1.20.4/` に生成して読みます。版移行の検討では、ほかの版も別のディレクトリに生成して比べられます。読み方と根拠の書き方は [Minecraftのソースとreports](docs/minecraft-source.md) を参照してください。
 
-CIのdatapack-linterが見ないmcfunctionの規約の一部は、`python3 scripts/datapack/check.py <作業コピー> --base origin/master` で検査できます。検査する規則はスクリプトの冒頭にあります。対象の作業コピーに `scripts/datapack/repository.py` があれば、そのrepo固有の検査も実行されます。
+CIのdatapack-linterが見ないmcfunctionの規約の一部は、`sh scripts/datapack/check.sh <作業コピー>` で検査できます。検査する規則はスクリプトの冒頭にあります。対象repoの `scripts/datapack/repository.py` が既定ブランチとの共通祖先にあれば、そのrepo固有の検査も実行されます。
 
 レビューの根拠・採用状況は各 repo の `docs/knowledge/sources.md`、知識の更新と共有方法は [ナレッジの配置と更新](docs/knowledge-maintenance.md) を参照してください。子 repo の文書は各 repo 側の変更として管理します。
 
@@ -210,12 +211,12 @@ CIのdatapack-linterが見ないmcfunctionの規約の一部は、`python3 scrip
 sh tests/setup.sh
 sh tests/setup-native.sh
 sh tests/runtime.sh
-python3 tests/knowledge.py
-python3 tests/minecraft.py
-python3 tests/datapack.py
+sh scripts/python.sh tests/knowledge.py
+sh scripts/python.sh tests/minecraft.py
+sh scripts/python.sh tests/datapack.py
 ```
 
-`tests/knowledge.py` はINDEX生成とノート検査の回帰確認です。対象repoの作業コピーは変更しません。`tests/minecraft.py` は、ソース生成で取得するファイルの選び方と生成済みの版の再利用を、ネットワークとJavaを使わずに確かめます。`tests/datapack.py` は、mcfunctionの検査と、repo固有の検査の呼出しを一時repoで確かめます。
+`tests/knowledge.py` はINDEX生成とノート検査の回帰確認です。対象repoの作業コピーは変更しません。`tests/minecraft.py` は、ソース生成で取得するファイルの選び方と生成済みの版の再利用を、ネットワークとJavaを使わずに確かめます。ソース生成と同じく Linux・macOS で実行します。`tests/datapack.py` は、mcfunctionの検査と、repo固有の検査の呼出しを一時repoで確かめます。
 
 実サーバーでの機能検証は、対象repoに保存したシナリオを共通runnerへ渡すと再実行できます。専用worldで実行し、入力・期待値・実測値・失敗と終了結果を試行ごとに保存します。Linux / DevContainer向けの手順と前提は [機能検証](docs/runtime-verification.md) を参照してください。
 

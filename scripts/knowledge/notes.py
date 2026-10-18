@@ -6,7 +6,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'lib'))
 from workcopy import (  # noqa: E402  re-exported for check.py and index.py
-    GitFailure, branch_name, git_output, git_problem, own_git_dir, repository_name)
+    GitFailure, branch_name, default_base, default_branch, git_output, git_problem, own_git_dir,
+    repository_name, utf8_console)
 
 KNOWLEDGE_DIR = 'docs/knowledge'
 NOTES_DIR = 'docs/knowledge/notes'
@@ -31,6 +32,7 @@ DEVSPACE_PROTECTED = (
     'docs/knowledge-notes.md',
     'scripts/knowledge/',
     'scripts/lib/workcopy.py',
+    'scripts/python.sh',
     'tests/knowledge.py',
 )
 CHILD_PROTECTED = (
@@ -183,6 +185,15 @@ def header_findings(document):
     yield from check_paths(document)
     yield from check_ids(document)
     yield from check_references(document)
+    if document.is_note and not related_area_documents(document):
+        # `index.py --for` finds a note from the area document it names here.
+        yield 'related に関係する領域文書（docs/knowledge/<名前>.md）がない'
+
+
+def related_area_documents(document):
+    """Name the area documents a note lists in `related`, anchors dropped."""
+    return {value.split('#', 1)[0] for value in document.header.get('related', [])
+            if is_area_document(value.split('#', 1)[0])}
 
 
 def body_findings(document):
@@ -326,8 +337,21 @@ def protected_paths(root):
     return DEVSPACE_PROTECTED if is_devspace(root) else CHILD_PROTECTED
 
 
+# Instruction files that an agent loads at any depth, such as a nested CLAUDE.md that
+# Claude Code reads on demand, change later sessions as much as the listed paths do.
+# Codex also reads AGENTS.override.md in place of AGENTS.md.
+INSTRUCTION_NAMES = ('agents.md', 'agents.override.md', 'claude.md', 'claude.local.md')
+INSTRUCTION_DIRECTORY = '.claude'
+
+
 def protected_hits(root, relatives):
-    rules = protected_paths(root)
-    return [path for path in relatives
-            if any(path == rule or (rule.endswith('/') and path.startswith(rule))
-                   for rule in rules)]
+    """Pick the protected paths; names are compared in lower case, as on Windows and macOS."""
+    rules = [rule.lower() for rule in protected_paths(root)]
+    found = []
+    for path in relatives:
+        lowered = path.lower()
+        parts = lowered.split('/')
+        if (any(lowered == rule or (rule.endswith('/') and lowered.startswith(rule)) for rule in rules)
+                or parts[-1] in INSTRUCTION_NAMES or INSTRUCTION_DIRECTORY in parts):
+            found.append(path)
+    return found
