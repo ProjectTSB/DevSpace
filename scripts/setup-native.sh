@@ -61,7 +61,7 @@ native_probe() {
       node --version >/dev/null 2>&1 && npm --version >/dev/null 2>&1; return;;
     python)
       for native_python in python3 python; do
-        if "$native_python" -c 'import sys; sys.exit(sys.version_info.major != 3)' >/dev/null 2>&1; then return 0; fi
+        if "$native_python" -c 'import sys; sys.exit(sys.version_info < (3, 9))' >/dev/null 2>&1; then return 0; fi
       done
       return 1;;
     *) "$1" --version >/dev/null 2>&1;;
@@ -74,7 +74,7 @@ native_package() {
     java) native_label='Java 17 以上 / Minecraft サーバー'; native_brew=temurin@17; native_kind=cask; native_winget=EclipseAdoptium.Temurin.17.JDK;;
     gh) native_label='GitHub CLI / PR・Issue と認証'; native_brew=gh; native_winget=GitHub.cli;;
     node) native_label='Node.js と npm / 個人用スキルなどの補助処理'; native_brew=node; native_winget=OpenJS.NodeJS.LTS;;
-    python) native_label='Python 3 / lint などの補助処理'; native_brew=python; native_winget=Python.Python.3.13;;
+    python) native_label='Python 3.9 以上 / AI 開発の検査・INDEX・ソース生成と lint'; native_brew=python; native_winget=Python.Python.3.13;;
     jq) native_label='jq / JSON の加工'; native_brew=jq; native_winget=jqlang.jq;;
     rg) native_label='ripgrep / コード検索'; native_brew=ripgrep; native_winget=BurntSushi.ripgrep.MSVC;;
     codex) native_label='Codex CLI / AI 開発'; native_brew=codex; native_kind=cask; native_winget=;;

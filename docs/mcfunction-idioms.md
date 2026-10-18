@@ -1,6 +1,6 @@
 # mcfunctionの共通イディオム
 
-Asset／TheSkyBlessingの実装・レビューで使う、コマンドの意味に基づく選択肢。Minecraft 1.20.4を前提とする。コード例のstorage・score名は説明用で、実装時には対象の宣言・公開範囲・後始末に合わせる。個別APIの契約は提供repoのナレッジで確認する。
+Asset／TheSkyBlessingの実装・レビューで使う、コマンドの意味とバニラの挙動に基づく選択肢。Minecraft 1.20.4を前提とする。コード例のstorage・score名は説明用で、実装時には対象の宣言・公開範囲・後始末に合わせる。個別APIの契約は提供repoのナレッジで確認する。
 
 | 実装したいこと・レビュー対象 | 参照先 |
 | --- | --- |
@@ -9,6 +9,7 @@ Asset／TheSkyBlessingの実装・レビューで使う、コマンドの意味�
 | NBTのフラグがtrueかを判定する | [存在と真偽を区別する](#存在と真偽を区別する) |
 | NBTの変化を検知する／未設定と0を区別する | [代入結果で変更を検知する](#代入結果で変更を検知する)、[既定値を残す](#既定値を残す) |
 | 小数をコマンド結果で受け渡す／NBTの整数を減らす | [整数化を挟む演算](#整数化を挟む演算) |
+| entityを探す範囲を決める／最も近いプレイヤーを選ぶ | [selectorの探索範囲と最も近いプレイヤー](#selectorの探索範囲と最も近いプレイヤー) |
 | 少なくともN体いるか／scoreが設定されているか | [件数を上限で打ち切る](#件数を上限で打ち切る)、[全int範囲でscoreの存在を調べる](#全int範囲でscoreの存在を調べる) |
 | 移動の慣性を消す／移動前後の位置を使う | [実行位置を移動前の値として保持する](#実行位置を移動前の値として保持する) |
 | ベクトル・方向・角度を計算する | [実行位置と向きを計算に使う](#実行位置と向きを計算に使う) |
@@ -93,6 +94,14 @@ execute store result storage example:work Remaining int 0.9999999999 run data ge
 正の整数・係数・値域をセットで採用する。Minecraft 1.20.4ではgetの倍率適用後はfloor、storeのint変換は0方向への切り捨てなので、負数では係数をgetとstoreの間で移せない。-1にこの係数を掛けると前者は-1、後者は0になる。両段へ係数を掛けると整数化も二回入る。実例と番兵値の扱いは[Assetのカウンタ](../Asset/docs/knowledge/runtime-and-tools.md#nbtの整数カウンタを1未満の倍率で減らす)を参照。
 
 丸めの根拠はMinecraft Java 1.20.4の公式server jarと [Mojang公式server mappings](https://piston-data.mojang.com/v1/objects/c1cafe916dd8b58ed1fe0564fc8f786885224e62/server.txt) の照合。`DataCommands` の数値取得は乗算後に `Mth.floor(double)`、`ExecuteCommand` のint保存は乗算後にJVMの `d2i` を使う。配布メタデータとjarのハッシュを照合したバイトコード調査に基づく。各利用例の寿命をゲーム内で検証した結果とは区別する。
+
+## selectorの探索範囲と最も近いプレイヤー
+
+`@e` の探索範囲を箱で絞るのは、`dx`・`dy`・`dz` のどれかか、上限のある `distance`（`distance=..5` や `distance=3`）だけである。`distance=5..` のように下限だけを書いた場合や、`x`・`y`・`z` だけを書いた場合は、調べるのが実行中のディメンションに限られるが、範囲は絞られない。これらのどれも書かなければ、読み込まれているすべてのディメンションのentityを調べる。並び順が任意（`sort` なしか `sort=arbitrary`）で `limit` を付けた場合は、指定した件数が見つかった時点で探索を打ち切る。対象が近くにあると分かっているときは、上限のある `distance` か `dx` 等で範囲を限定する。同じディメンションにあるがどこにあるか分からない対象は、`distance=0..` で実行中のディメンションに限れる。ほかのディメンションのentityが外れるだけである。ディメンションをまたいで探す必要があるときだけ、どちらも付けない。根拠はMinecraft 1.20.4の `net.minecraft.commands.arguments.selector` の `EntitySelectorParser` の `getSelector`、`EntitySelector` の `findEntitiesRaw`、`options.EntitySelectorOptions` の `bootStrap` で、[デコンパイル結果](minecraft-source.md)で確認した。実機では確かめていない。
+
+`@p` は `@a[sort=nearest,limit=1]` と同じ選択になる。どちらもプレイヤーに限り、近い順に1人を選び、生存の条件は加えない（同じく `EntitySelectorParser` の `parseSelector` と、`sort`・`limit` を解釈する `EntitySelectorOptions` の `bootStrap`。デコンパイル結果で確認し、実機では確かめていない）。条件に合う最も近いプレイヤー1人は `@p[条件]` と書く。`@e[type=player,sort=nearest,limit=1]` は、`@e` が生存しているentityだけを選ぶため、死亡中のプレイヤーを選ばない点で異なる。
+
+この節の書き方の一部は、DevSpaceの `sh scripts/datapack/check.sh <作業コピー>` で検査できる。検査する規則はスクリプトの冒頭にある。
 
 ## 件数を上限で打ち切る
 

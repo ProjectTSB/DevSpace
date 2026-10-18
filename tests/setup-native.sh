@@ -122,7 +122,7 @@ MOCK
 # Source functions for fixtures and contract checks, then run actual CLI processes.
 DEVSPACE_NATIVE_LIBRARY=1 . "$root/scripts/setup-native.sh"
 native_extensions > "$tmp/extensions"
-python3 - "$root/.devcontainer/devcontainer.json" "$tmp/extensions" <<'PY'
+sh "$root/scripts/python.sh" - "$root/.devcontainer/devcontainer.json" "$tmp/extensions" <<'PY'
 import json, sys
 with open(sys.argv[1]) as f:
     expected = json.load(f)['customizations']['vscode']['extensions']

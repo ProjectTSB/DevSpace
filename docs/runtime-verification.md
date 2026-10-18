@@ -63,4 +63,4 @@ sh scripts/verify.sh Asset/tests/scenarios/dual-rhythm.json \
 
 失敗時の条件・観測・再試行で変えた条件・確認できた範囲は実行記録に残す。複数条件を同時に変えて直った場合は原因を一つに断定しない。完了時は [ナレッジの採用基準](knowledge-maintenance.md#更新時に残すもの) で再利用できる結論を選び、対象repoの既存の該当節へ統合する。sourcesとの同時更新や、試行ごとの成否・未検証項目の一覧の転記は不要。結論を支える確認範囲と証拠への参照だけを必要に応じて残す。
 
-runnerの変更判定・結果保存・シナリオ解釈のオフライン回帰テストは `python3 tests/verification.py` で実行する。Minecraft内の機能検証とは別の確認になる。
+runnerの変更判定・結果保存・シナリオ解釈のオフライン回帰テストは `sh scripts/python.sh tests/verification.py` で実行する。Minecraft内の機能検証とは別の確認になる。

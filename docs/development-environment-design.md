@@ -183,7 +183,7 @@ Minecraft にはリンク先の許可検証がある。[1.20 Pre-release 7 の�
 
 開発者が共通のセットアップ・起動処理を利用するためだけに、追加の言語ランタイムやパッケージ管理ツールを導入する構成は避ける。現在の DevContainer に Node.js があることを、全開発者の前提にはしない。OS 標準の道具を優先し、Git と Minecraft サーバー用 Java は用途上必要な前提として別に扱う。
 
-初期取得・サーバー起動は共通の `sh` スクリプトで実装する方針とする。ユーザー指定により Windows は既存の Git Bash を前提にできる。macOS / Linux / DevContainer は `/bin/sh` を使い、共通部分は POSIX sh の範囲に揃える。Windows 用の別の PowerShell 起動スクリプトは設けない。Node.js、Python、jq、PowerShell 7 や GNU 固有のコマンドを共通の必須依存にしない。
+初期取得・サーバー起動は共通の `sh` スクリプトで実装する方針とする。ユーザー指定により Windows は既存の Git Bash を前提にできる。macOS / Linux / DevContainer は `/bin/sh` を使い、共通部分は POSIX sh の範囲に揃える。Windows 用の別の PowerShell 起動スクリプトは設けない。Node.js、Python、jq、PowerShell 7 や GNU 固有のコマンドを共通の必須依存にしない。AI 開発の検査・INDEX・Minecraft のソース生成は Python 3.9 以上の標準ライブラリで実装し、`scripts/python.sh` が `python3` か `python` を選んで UTF-8 mode で起動する。セットアップとサーバー起動には Python を要求しない。
 
 共通スクリプトをリポジトリに同梱し、設定項目・取得情報・検出規則・振る舞いを共有する。Windows の junction 作成やネイティブコマンドへ渡すパスの変換など、必要な OS 差だけを内部の処理へまとめる。VS Code の task も同じスクリプトを呼び、Windows では Git Bash の `sh` を利用する。ローカル設定をコードとして実行する方式は避ける。HTTP 取得、ハッシュ照合、リンク先確認、pack メタデータの検査などは OS 標準または Git Bash に同梱された機能で実現できる範囲を実装時に確認する。追加の外部コマンドを黙って増やさない。シェルスクリプトは LF で共有し、空白・日本語を含むパスと Windows のパス変換も検証する。
 
