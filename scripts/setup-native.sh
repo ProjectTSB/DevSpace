@@ -197,7 +197,7 @@ native_tools() {
         native_failed=1
       fi
     else
-      native_say "導入未完了  $native_tool。上のエラーを確認して再実行してください。" >&2
+      native_say "導入未完了  ${native_tool}。上のエラーを確認して再実行してください。" >&2
       native_failed=1
     fi
   done
@@ -229,7 +229,7 @@ native_editor() {
       *@*) [ "$native_current" != "${native_extension##*@}" ] || { native_say "導入済み  $native_extension"; continue; };;
       *) [ -z "$native_current" ] || { native_say "導入済み  $native_id@$native_current"; continue; };;
     esac
-    native_say "導入候補  $native_extension（現在 ${native_current:-未導入}）"
+    native_say "導入候補  ${native_extension}（現在 ${native_current:-未導入}）"
     [ "$native_mode" != check ] || continue
     native_say "実行予定  code --install-extension $native_extension --force"
     native_ask 'この拡張機能を導入しますか？ 指定版がある場合はその版へ変更します。' || continue
